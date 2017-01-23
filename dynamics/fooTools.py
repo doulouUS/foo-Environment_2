@@ -3,6 +3,9 @@
 Created on Mon Jan 16 09:39:45 2017
 
 @author: Louis
+
+
+Toolbox necessary to build the dynamics of our environment
 """
 import requests
 import json
@@ -34,7 +37,7 @@ API_Key="Avah46_M-gfFeQ3P1w09Qq1ElAV9ZEHFDm9b8JRCRa8qPP5uVn21hDqAPVJgV4i_"
 #                       Deliveries related
 #------------------------------------------------------------------------------
 
-def jobRetriever (string, nbTrucks):
+def jobRetriever (string, nbTrucks, path):
     """Retrieve sequences of customers to visit and the pick-ups occuring
     when operating.
     
@@ -44,6 +47,9 @@ def jobRetriever (string, nbTrucks):
     
     nbTrucks: nb of sequence to retrieve
     
+    path: path where the data is located (cleanedData)
+        on my mac:'/Users/Louis/Documents/Research/Code/cleanedData/'
+    
     @Ouput
     dicionary {'cluster_n':{'delivery_m':[Address,Longitude,Latitude]}}
     """
@@ -51,7 +57,7 @@ def jobRetriever (string, nbTrucks):
     dictio={'date': string[7:18]}    
     
     #Configuration for CSV reading
-    with open('/Users/Louis/Documents/Research/Code/cleanedData/'+string) as csvfile:
+    with open(path+string) as csvfile:
         #Dictionary containing the info
         reader=csv.DictReader(csvfile,delimiter=',')
         
@@ -103,7 +109,7 @@ def jobRetriever (string, nbTrucks):
                                     
     return dictio   
 
-result=jobRetriever('cleaned01-Dec-2015.csv',3)
+result=jobRetriever('cleaned01-Dec-2015.csv',3,'/Users/Louis/Documents/Research/Code/cleanedData/')
 
 def jobRetrieverToCSV(result,name,clusterNb=1):
     """Send jobRetriever results into a csv file
@@ -246,16 +252,21 @@ def loadJSON(fileName):
     """
     return json.loads(open(fileName).read())
     
-def writingJSON(fileName):
+def writingJSON(fileName,res):
     """
     
     @Input
     fileName: name of the output file do not include extension
+    res: dictionary-like result from fetch_  functions
     """
     with open(fileName+'.json', "w") as f:
         f.write(json.dumps(res))
     
-    return 0
+    #return 0
+    
+#------------------------------------------------------------------------------
+#                       TESTS
+#------------------------------------------------------------------------------
     
 #if __name__ == "__main__":
 #    
