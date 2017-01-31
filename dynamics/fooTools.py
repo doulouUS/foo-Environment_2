@@ -3,15 +3,24 @@
 Created on Mon Jan 16 09:39:45 2017
 
 @author: Louis
-
-
-Toolbox necessary to build the dynamics of our environment
 """
 import requests
 import json
 import csv
 import urllib.parse
 from urllib.parse import urlparse
+
+import numpy as np
+
+import re
+
+import time
+
+from sklearn.neighbors import KernelDensity
+import csv
+
+from tempfile import TemporaryFile #store the data as a numpy array
+
 #import httplib2 as http #External library
 
 #Useful help
@@ -37,7 +46,7 @@ API_Key="Avah46_M-gfFeQ3P1w09Qq1ElAV9ZEHFDm9b8JRCRa8qPP5uVn21hDqAPVJgV4i_"
 #                       Deliveries related
 #------------------------------------------------------------------------------
 
-def jobRetriever (string, nbTrucks, path):
+def jobsAsDict (string, nbTrucks):
     """Retrieve sequences of customers to visit and the pick-ups occuring
     when operating.
     
@@ -47,17 +56,16 @@ def jobRetriever (string, nbTrucks, path):
     
     nbTrucks: nb of sequence to retrieve
     
-    path: path where the data is located (cleanedData)
-        on my mac:'/Users/Louis/Documents/Research/Code/cleanedData/'
-    
     @Ouput
-    dicionary {'cluster_n':{'delivery_m':[Address,Longitude,Latitude]}}
+    dicionary {'cluster_n':{'delivery_m':[Address,Longitude,Latitude]
+                                
+                                'pickUp_l':[Address,Longitude,Latitude,ReadyTimePickup,CloseTimePickup]}}
     """
     
     dictio={'date': string[7:18]}    
     
     #Configuration for CSV reading
-    with open(path+string) as csvfile:
+    with open('/Users/Louis/Documents/Research/Code/cleanedData/'+string) as csvfile:
         #Dictionary containing the info
         reader=csv.DictReader(csvfile,delimiter=',')
         
@@ -109,13 +117,13 @@ def jobRetriever (string, nbTrucks, path):
                                     
     return dictio   
 
-result=jobRetriever('cleaned01-Dec-2015.csv',3,'/Users/Louis/Documents/Research/Code/cleanedData/')
+#result=jobsAsDict('cleaned01-Dec-2015_modified.csv',10)
 
-def jobRetrieverToCSV(result,name,clusterNb=1):
-    """Send jobRetriever results into a csv file
+def jobsToCSV(result,name,clusterNb=1):
+    """Send jobAsDict results into a csv file
     
     @Input
-    result: dictionary
+    result: dictionary, obtained by the jobsAsDict function
     name: string to name the output csv file (do not add .csv)
     clusterNb: choose which cluster to write down (default 1)
     
@@ -127,7 +135,7 @@ def jobRetrieverToCSV(result,name,clusterNb=1):
     with open(name+'.csv', 'w') as f:  # Just use 'w' mode in 3.x
         w = csv.DictWriter(f, ['Address','Longitude','Latitude','Type','ReadyTime','EndTime'])
         w.writeheader()
-        for loc in result['cluster_'+clusterNb].items():
+        for loc in result['cluster_'+str(clusterNb)].items():
             if loc[1][1]!='N/A':# make sure we have the coordinates
                 
                 if loc[0][0]=='p': #pick-up
@@ -137,6 +145,8 @@ def jobRetrieverToCSV(result,name,clusterNb=1):
                     w.writerow({'Address':loc[1][0],'Longitude':loc[1][1],\
                     'Latitude':loc[1][2],'Type':'d','ReadyTime':'None','EndTime':'None'})
 
+#for i in range(11):
+#    jobsToCSV(result,"01Dec-nb"+str(i),i)
 #print(result['cluster_2']['delivery_1'])
 #print(result['cluster_1']['delivery_1'])
 #print(result['cluster_0']['Init'])
@@ -146,13 +156,13 @@ def jobRetrieverToCSV(result,name,clusterNb=1):
 #------------------------------------------------------------------------------
     
 def roadSegments(locations):
-    """Given a set of locations, return all the road segments joinning 
+    """Given 2 locations, return all the road segments joinning 
     these locations.
     
-    Problem: limitations of the API (Google...)
+    Problem: limitations of the API (Bing, Google...)
     
     @Input
-    locations: dictionnary-like ex: {clutser_1 :{'delivery_1' :[Address, Longitude, Latitude],
+    locations: list for now, ?dictionnary-like ex: {clutser_1 :{'delivery_1' :[Address, Longitude, Latitude],
                                                 'delivery_2' : [Address, Longitude, Latitude]}}
     
     @Output (tuples)
@@ -166,10 +176,10 @@ def roadSegments(locations):
     
     
     # URL Parameters
-    params = { 'wayPoint.0' : locations[0],
-               'wayPoint.1' : locations[1],
-                'key' : API_Key}
-                # by default 'optimize' : 'time'} #this is by default
+    params = { 'wayPoint.0' : locations[0]+',Singapore',
+               'wayPoint.1' : locations[1]+',Singapore',
+                'routeAttributes':'routePath',
+                'key' : API_Key}                # by default 'optimize' : 'time'} #this is by default
     
     url=uri+path
         
@@ -180,6 +190,7 @@ def roadSegments(locations):
         
     # Retrieving values
     statusCode=results['statusCode']
+    print(statusCode)
     travelDistance=results['resourceSets'][0]['resources'][0]['travelDistance']
     travelDuration=results['resourceSets'][0]['resources'][0]['travelDuration']
     travelDurationTraffic=results['resourceSets'][0]['resources'][0]['travelDurationTraffic']
@@ -187,10 +198,23 @@ def roadSegments(locations):
                     ['itineraryItems'])
     itineraryItems=results['resourceSets'][0]['resources'][0]['routeLegs'][0]\
                     ['itineraryItems']
+    pathCoord=results['resourceSets'][0]['resources'][0]['routePath']['line']['coordinates']
+    roadName=[]    
+    travelDistances=[]
+    travelDuration=[] 
+    maneuverType=[]
+            
+    for seg in itineraryItems:
+        for i in range(len(seg['details'])):
+            print(i)
+            roadName.append(seg['details'][i]['names'])
+            travelDistances.append(seg['travelDistance'])
+            travelDuration.append(seg['travelDuration'])
+            maneuverType.append(seg['details'][i]['maneuverType'])
     
-    return statusCode,travelDistance,travelDuration,travelDurationTraffic,numberSegments,itineraryItems
+    return statusCode,travelDistance,travelDuration,travelDurationTraffic,numberSegments,roadName, travelDistance,travelDuration,maneuverType,pathCoord
 
-#print(roadSegments(['Redmond, WA','Issaquah, WA']))
+#itinItems=roadSegments(['Redmond, WA','Issaquah, WA'])[5]
 # Interesting values to retrieve
 
 # Length browsed on this particular road
@@ -200,6 +224,8 @@ def roadSegments(locations):
 #print(resp['resourceSets'][0]['resources'][0]['routeLegs'][0]['itineraryItems']\
 #                   [0]['travelDuration'])
    
+   
+
 #------------------------------------------------------------------------------
 #                       LTA Data related
 #------------------------------------------------------------------------------      
@@ -252,21 +278,126 @@ def loadJSON(fileName):
     """
     return json.loads(open(fileName).read())
     
-def writingJSON(fileName,res):
+def writingJSON(fileName):
     """
     
     @Input
     fileName: name of the output file do not include extension
-    res: dictionary-like result from fetch_  functions
     """
     with open(fileName+'.json', "w") as f:
         f.write(json.dumps(res))
     
-    #return 0
+    return 0
+    
     
 #------------------------------------------------------------------------------
-#                       TESTS
+#           Formating data
+# 
 #------------------------------------------------------------------------------
+ 
+def formatDate(string):
+    """Give an integer as a date. DDMMYY
+    
+    """
+    splitStr=re.split('-',string)
+    return int(splitStr[0]+'12'+splitStr[2])
+    
+def formatAddress():
+    """Retrieve all the visited addresses and return a set of it, sorted by alphabetical order
+    
+    """
+    #Strings to load data
+    stringFile='/Users/Louis/Documents/Research/Code/cleanedData/'
+    days={'cleaned01-Dec-2015':2,#tuesday
+        'cleaned02-Dec-2015':3,#wednesday
+        'cleaned03-Dec-2015':4,#...
+        'cleaned04-Dec-2015':5,
+        'cleaned07-Dec-2015':1,
+        'cleaned08-Dec-2015':2,
+        'cleaned09-Dec-2015':3,
+        'cleaned10-Dec-2015':4,
+        'cleaned11-Dec-2015':5,
+        'cleaned14-Dec-2015':1,
+        'cleaned15-Dec-2015':2,
+        'cleaned16-Dec-2015':3,
+        'cleaned17-Dec-2015':4,
+        'cleaned18-Dec-2015':5,
+        'cleaned21-Dec-2015':1}
+        
+    #Store results
+    addresses=[]
+    CourierSuppliedAddresses=[]
+     
+    for day in days.keys():
+        #Configuration for CSV reading
+        with open(stringFile+day+'_modified.csv') as csvfile:
+            #Dictionary containing the info
+            reader=csv.DictReader(csvfile,delimiter=',')
+            #print(day)
+            
+            for row in reader:
+                addresses.append(row['Address'])
+                CourierSuppliedAddresses.append(row['CourierSuppliedAddress'])
+                
+    addresses=list(set(addresses))
+    addresses.sort()
+    
+    CourierSuppliedAddresses=list(set(CourierSuppliedAddresses))
+    CourierSuppliedAddresses.sort()
+    return addresses, CourierSuppliedAddresses
+    
+    
+    
+def formatPickup(string):
+    """Return an int when it's not 'N/A' and O otherwise
+    
+    """
+    if string=='N/A':
+        return 0
+    else:
+        return int(string)
+        
+def formatCoordinates(string):
+    """Return a float when it's not 'N/A' and O otherwise
+    
+    """
+    if string=='N/A':
+        return 0
+    else:
+        return float(string)
+        
+def formatPostalCode(string):
+    """Return the corresponding int when the format is correct, 0 otherwise
+    
+    """
+    if string.isdigit():
+        return int(string)
+    else :
+        return 0
+    
+        
+def formatPickupType(string):
+    """Encode the pickup type with an int
+    
+    0:N/A, 1:D, 2:M, 3:C, R:4, T:5
+    """
+    if string == 'N/A':
+        return 0
+    elif string == 'D':
+        return 1
+    elif string == 'M':
+        return 2
+        
+    elif string == 'C':
+        return 3
+        
+    elif string == 'R':
+        return 4
+        
+    else:
+        return 5
+        
+    
     
 #if __name__ == "__main__":
 #    
@@ -279,5 +410,3 @@ def writingJSON(fileName,res):
 #    #mem=loadJSON('res_50.json')
 #    
 #    print(res['value'][0].keys())
-
-                                
