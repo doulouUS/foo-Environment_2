@@ -273,12 +273,12 @@ def loadJSON(fileName):
     """
     
     @Input
-    fileName: JSON file (add the extension)
+    fileName: JSON file (do not add the extension)
     
     """
     return json.loads(open(fileName).read())
     
-def writingJSON(fileName):
+def writingJSON(fileName,res):
     """
     
     @Input
@@ -289,7 +289,8 @@ def writingJSON(fileName):
     
     return 0
     
-    
+result=fetch_50("http://datamall2.mytransport.sg/ltaodataservice/TrafficSpeedBands")
+writingJSON('speedData',result)
 #------------------------------------------------------------------------------
 #           Formating data
 # 

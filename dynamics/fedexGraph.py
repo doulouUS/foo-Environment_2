@@ -25,7 +25,8 @@ class fedexGraph():
         self.data=npArray 
         
         #----------------------- Addresses ---------------------------------
-        self.addresses, self.CourierSuppliedAddresses=formatAddress()
+        self.globaladdress, self.globalCourierSuppliedAddress=formatAddress()
+        self.Address=list(set(npArray[:,4]))
        
         
         #----------------------- API matters ---------------------------------
