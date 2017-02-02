@@ -66,10 +66,12 @@ data=data[mask]
 data=data[102:137,:]#cluster5 1 dec
 
 taskCluster=fedexGraph(data)
-print(taskCluster.addresses[int(data[0,4])])
-print(taskCluster.addresses[int(data[1,4])])
+loc1=taskCluster.globaladdress[int(taskCluster.data[0,4])]
+loc2=taskCluster.globaladdress[int(taskCluster.data[1,4])]
+print(loc1)
+print(loc2)
 
-g1,g2,g3,g4,g5,roadNames,g6,g7,maneuvType,coordPath=roadSegments([taskCluster.addresses[int(data[0,4])],taskCluster.addresses[int(data[1,4])]])
+g1,g2,g3,g4,g5,roadNames,g6,g7,maneuvType,coordPath=roadSegments([loc1,loc2])
 print(roadNames)
 print(maneuvType)
 print(coordPath)
