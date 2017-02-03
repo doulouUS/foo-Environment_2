@@ -129,8 +129,10 @@ def npArrayToTxt(speedData, name,fmt) :
         compressed txt file
     """
     np.savetxt(name+'.gz' , speedData, fmt=fmt)
+    
+    
+if __name__ == "__main__":
 
-
-fmt='%.3d'
-npArrayToTxt(maxSpeed,'max_speed_band',fmt)
+    fmt='%.3d'
+    npArrayToTxt(maxSpeed,'max_speed_band',fmt)
     
