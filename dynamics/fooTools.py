@@ -7,17 +7,10 @@ Created on Mon Jan 16 09:39:45 2017
 import requests
 import json
 import csv
-import urllib.parse
-from urllib.parse import urlparse
-
-import numpy as np
+#import urllib.parse
+#from urllib.parse import urlparse
 
 import re
-
-import time
-
-from sklearn.neighbors import KernelDensity
-import csv
 
 from tempfile import TemporaryFile #store the data as a numpy array
 
@@ -116,8 +109,6 @@ def jobsAsDict (string, nbTrucks):
 
                                     
     return dictio   
-
-#result=jobsAsDict('cleaned01-Dec-2015_modified.csv',10)
 
 def jobsToCSV(result,name,clusterNb=1):
     """Send jobAsDict results into a csv file
@@ -289,8 +280,6 @@ def writingJSON(fileName,res):
     
     return 0
     
-result=fetch_50("http://datamall2.mytransport.sg/ltaodataservice/TrafficSpeedBands")
-writingJSON('speedData',result)
 #------------------------------------------------------------------------------
 #           Formating data
 # 
@@ -400,14 +389,13 @@ def formatPickupType(string):
         
     
     
-#if __name__ == "__main__":
-#    
-#    url_speed_band="http://datamall2.mytransport.sg/ltaodataservice/TrafficSpeedBands"    
-#    url_bus_stops="http://datamall2.mytransport.sg/ltaodataservice/BusStops"    
-#    url_incident="http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents"    
-#    url_taxi="http://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
-#    
-#    res = fetch_50(url_speed_band)    
-#    #mem=loadJSON('res_50.json')
-#    
-#    print(res['value'][0].keys())
+if __name__ == "__main__":
+    
+    url_speed_band="http://datamall2.mytransport.sg/ltaodataservice/TrafficSpeedBands"    
+    url_bus_stops="http://datamall2.mytransport.sg/ltaodataservice/BusStops"    
+    url_incident="http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents"    
+    url_taxi="http://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
+    
+    result=fetch_50("http://datamall2.mytransport.sg/ltaodataservice/TrafficSpeedBands")
+    writingJSON('speedData',result)
+    print(res['value'][0].keys())

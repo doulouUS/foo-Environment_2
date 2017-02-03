@@ -4,8 +4,11 @@ Created on Wed Feb  1 13:25:31 2017
 
 @author: Louis
 """
+import sys
+sys.path.append('/anaconda/lib/python3.5/site-packages/gym-foo')#add the path of gym-foo directory
 
-from fooTools import *
+from dynamics.fooTools import *
+#from dynamics import fooTools
 import numpy as np
 
 dataPath='/anaconda/lib/python3.5/site-packages/gym-foo/dynamics'
@@ -39,8 +42,8 @@ def ltaRoads(files):
     
 def ltaRoadsSlot(file):
     """Return the set of roads for one JSON file, corresponding to one slot time.
-    This is to check if there are less measured roads than the total number of roads
-    given by ltaRoads.
+    This is to check if there are less measured roads than the maximum number of roads
+    measured during all our retrieving period.
     
     """
     data=loadJSON(dataPath+'/'+file+'.json')
@@ -68,10 +71,10 @@ def fileNameToInt(file):
     date=string[3][0:4]+string[1]+string[2]+time[0]+time[1]
     return int(date)
 
-def SpeedData(files):
-    """Return a np array
+def speedJSONtoNp(files):
+    """Return 2 np arrays, one for max speed and one for min speed
     
-    @Input: files, list of name files to be examined
+    @Input: files, list of name files to be examined (speed data)
     
     @Output: np array, nbFiles * (1+nbRoads) containing the max speed.
     The first column contains the date of the measure.
@@ -104,16 +107,30 @@ def SpeedData(files):
     maxSpeed=np.asarray(maxSpeed)
     minSpeed=np.asarray(minSpeed)
     return maxSpeed, minSpeed
-maxSpeed,minSpeed=SpeedData(files)
-mask=maxSpeed[0,:]==-1
-mask2=minSpeed[0,:]==0
-print(maxSpeed[mask].shape,minSpeed[mask2].shape)
-print(maxSpeed>minSpeed)
-        
-
     
+maxSpeed,minSpeed=speedJSONtoNp(files)
+
+mask=(maxSpeed[0,:]==-1)
+mask2=(minSpeed[0,:]==0)
+
+#print(mask)
+
+print(maxSpeed[0,mask].shape,minSpeed[0,mask2].shape)
+#print(maxSpeed>minSpeed)
+def npArrayToTxt(speedData, name,fmt) :
+    """Send numpy data array to a compressed txt file
     
+    @Input
+        speedData: np array 
+        name: str, name of the output file (.gz is added)
+        fmt: str or list of str, digits formatting ex: '%.3d'
+    
+    @Output
+        compressed txt file
+    """
+    np.savetxt(name+'.gz' , speedData, fmt=fmt)
 
 
-        
+fmt='%.3d'
+npArrayToTxt(maxSpeed,'max_speed_band',fmt)
     

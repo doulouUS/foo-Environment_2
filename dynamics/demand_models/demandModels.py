@@ -6,18 +6,13 @@ Created on Tue Jan 24 15:38:50 2017
 """
 
 import time
-import os
 from sklearn.neighbors import KernelDensity
 import csv
 
-from tempfile import TemporaryFile #store the data as a numpy array
 
 #import urlib #can't find it !!
-import json, requests
-import random
+#import json, requests
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.datasets.base import Bunch
 
 import re #string splitting
 
@@ -117,14 +112,14 @@ def modelGenerator(data,day,startTime,timeSpan):
             
     
     """
-    days={'monday':1,'Tuesday':2,'Wednesday':3,'thursday':4,'Friday':5,'Saturday':6}
-    mask=(data[:,0]==days[day]) & (measures[:,3]>startTime) & (measures[:,3]<startTime+timeSpan)
-    print(measures[mask].shape)
+    days={'monday':1,'tuesday':2,'wednesday':3,'thursday':4,'friday':5,'saturday':6}
+    mask=(data[:,0]==days[day]) & (data[:,3]>startTime) & (data[:,3]<startTime+timeSpan)
+    print(data[mask].shape)
 
     #Corresponding KernelDensity model: Parameters to be reviewed !!
     kde = KernelDensity(bandwidth=0.04,
                         kernel='gaussian', algorithm='ball_tree')
-    kde.fit(measures[mask][:,1:3])#remove unnecessary features (day, times)
+    kde.fit(data[mask][:,1:3])#remove unnecessary features (day, times)
 
     return kde
     
@@ -305,24 +300,50 @@ def dataToNumpy():
     measures=np.asarray(measures)
     return measures
     
-start=time.time()  
-measures=dataToNumpy()
-print(measures.shape)
-end=time.time() 
+#start=time.time()  
+#measures=dataToNumpy()
+#print(measures.shape)
+#end=time.time()  
+#print("Generating time before storing: %d" % (end-start))    
+   
 
-fedexData=TemporaryFile() 
-header="StopDate,WeekDay,StopOrder,StopStartTime,Address,PostalCode,\
-    CourierSuppliedAddress,ReadyTimePickup,CloseTimePickup,PickupType,\
-    WrongDayLateCount,RightDayLateCount,FedExID,Longitude,Latitude"
-
-np.savetxt('fedex.data',measures, fmt=['%.8d', '%.2d', '%.2d', '%.4d', '%.6d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.18f', '%.18f'], header=header)
+def numpyToTxt(measures,name):
+    """Store a numpry array into a txt file
     
-print("Generating time before storing: %d" % (end-start))    
+    @Input
+        measures: numpy array
+        name: string, name of the output file
+        
+    @Output
+        txt file
     
+    """
+    header="StopDate,WeekDay,StopOrder,StopStartTime,Address,PostalCode,\
+        CourierSuppliedAddress,ReadyTimePickup,CloseTimePickup,PickupType,\
+        WrongDayLateCount,RightDayLateCount,FedExID,Longitude,Latitude"
+    
+    np.savetxt('fedex.data',measures, fmt=['%.8d', '%.2d', '%.2d', '%.4d', '%.6d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.4d', '%.18f', '%.18f'], header=header)
+  
     
  # Function to rename headers of our .csv.......   
 def csvHeader():
-
+    
+    days={'cleaned01-Dec-2015':2,#tuesday
+        'cleaned02-Dec-2015':3,#wednesday
+        'cleaned03-Dec-2015':4,#...
+        'cleaned04-Dec-2015':5,
+        'cleaned07-Dec-2015':1,
+        'cleaned08-Dec-2015':2,
+        'cleaned09-Dec-2015':3,
+        'cleaned10-Dec-2015':4,
+        'cleaned11-Dec-2015':5,
+        'cleaned14-Dec-2015':1,
+        'cleaned15-Dec-2015':2,
+        'cleaned16-Dec-2015':3,
+        'cleaned17-Dec-2015':4,
+        'cleaned18-Dec-2015':5,
+        'cleaned21-Dec-2015':1}
+        
     for inputFileName in days.keys():
         outputFileName = '/Users/Louis/Documents/Research/Code/cleanedData/'+inputFileName + "_modified.csv"
         inputFileName='/Users/Louis/Documents/Research/Code/cleanedData/'+inputFileName+'.csv'
