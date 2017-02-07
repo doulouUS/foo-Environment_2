@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import httplib2 as http #External library
 
 import numpy as np
+import math
 import itertools as it
 
 import gym
@@ -17,144 +18,148 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 from gym.envs.toy_text import discrete
 
-def dataRetriever():
-    #Authentication parameters
-    headers = { 'AccountKey' : '6HsAmP1e0R/EkEYWOcjKg==',
-               'accept' : 'application/json'} #this is by default
-               
-    #API parameters
-    uri = 'http://datamall2.mytransport.sg/' #Resource URL 
-    path = '/ltaodataservice/TrafficIncidents?'
-    
-    #Build query string & specify type of API call
-    target = urlparse(uri + path) 
-    print(target.geturl())
-    method = 'GET'
-    body = ''
-    #Get handle to http
-    h = http.Http()
-    #Obtain results
-    response, content = h.request(
-        target.geturl(),
-        method,
-        body,
-        headers)
-    #Parse JSON to print
-    jsonObj = json.loads(content)
-    print(json.dumps(jsonObj, sort_keys=True, indent=4))
-    #Save result to file
-    with open("traffic_incidents.json","w") as outfile: 
-        #Saving jsonObj["d"]
-        json.dump(jsonObj, outfile, sort_keys=True, indent=4,
-              ensure_ascii=False)
-
-# Functions working on data
-def travelTime(node1,node2,t):
-    """
-    Return the mean and variance of the travel time necessary to go from node1 to node2 at time t
-    """
-    
-    #Retrieve the data (could be shared with probCongStatus too)
-    
-    #Identify road segments
-    
-    #Compute the travel time mean for each segment and then sum
-    
-    return 0
-
-def probCongStatus(node1,node2,t):
-    """
-    Return the probabilities of the congestion status after traveling from 
-    node1 to node2 at time t, for all the arcs?
-    """
-    
-    return 0
 
 class FooEnv(gym.Env):
+
     metadata = {'render.modes': ['human']}
 
-    def __init__(self):
-        
-        ## Attributes
-        
+    def __init__(self, deliverydata):
         """
-        Later: should be imported from a fixed format file to be reused everyday
-        """
-        
-        #Number of location to visit
-        self.nL=10
-        #Number of ways to classify congestion traffic on one arc
-        # ex: nC=2 => traffic on one arc classified as non-jammed or jammed
-        self.nC=2
-        
-        # Known customer locations
-        self.custLoc={a : [] for a in range (nL)}
-        
-        # Unknow customer locations
-        # to be included: probability distribution of pick-ups to pop up
-        
-        #Dynamics for traffic congestion
-        self.P = {s : {a : [] for a in range(nA)} for s in range(nS)} 
-        
-        #Dynamics for travel time estimation
-        #We need to retrieve the mean and variance of the considered arc
-        
-        #Action space: nL*(nL-1) possible action, but given a state only some of them
-        # are doable
-        #self.action_space=it.permutations(range(nL),2)
-        #Observation space: too large and we're not going to visit all the nodes...
-        #self.observation_space=2
-        
 
 
-        
-        
-        
-           
-    
-    def _step(self, action):
-        #Reward Computations first
-        #Reward: expectancy of the cost function to do the action ie mean of travel time
-        reward=travelTime(self.curNode,action,self.time)
-    
-        
-        #Next state computations second
-        self.time+=1
-        self.curNode=action
-        self.remNodes[action]=1
-        self.congStatus=probCongStatus(self.curNode, action, self.time)
-        self.remNodes[self.curNode]=1
-        
-        self.state= self.time, self.node, self.congStatus, self.remNodes
-        
-        #Are we done ?
-        if(self.remNodes==np.ones(self.nL)):
-            done=True
-        else:
-            done=False
-        
-        return self.state, reward, done
-    
+        :param deliverydata: np array     ['StopDate','WeekDay','StopOrder','StopStartTime','Address','PostalCode',
+            'CourierSuppliedAddress','ReadyTimePickup','CloseTimePickup','PickupType',
+            'WrongDayLateCount','RightDayLateCount','FedExID','Longitude','Latitude']
+
+            /!\ Make sure the first line of this array is the depot /!\
+
+        """
+        self.deliverydata = deliverydata
+        # FedEx data
+        self.locations = deliverydata[:,4]  # Addresses ID
+
+        # Delivery locations to visit
+        mask_d = self.locations[:,7] == 'N/A'
+        self.deliveryLocations = self.locations[mask_d]  # ID of the delivery locations, Coordinates
+        self.ndl = np.size(self.locations[mask_d])
+
+        # Pick-up locations to visit : invisible to the agent (pre-loaded scenario)
+        mask_p = self.locations[:,7] != 'N/A'
+        self._pickupLocations = self.locations[mask_p]  # ID of the pickup addresses
+        self._ndp = np.size(self.locations[mask_p])
+
+        # Tasks ahead
+        mask_ta = self.deliverydata[:,7] != 'N/A'
+        self.tasksAhead = self.deliverydata[mask_ta]
+
+        # Time related variables
+        # Duration of one time step in mn
+        self.timeStep = 30
+
+        # Start of operations
+        self.startTime = '0800'  # 8am
+
+        # Number of ways to classify congestion traffic on one arc
+        # ex: nC=2 => traffic on one arc classified as non-jammed (0) or jammed (1)
+        self.nC = 2
+
+        # Define the state, see _reset() for a meaningful initialization
+        self.time = 0
+        self.currentLocation = 0
+        self.congestionStatus = 0
+        self.customerState = 0
+
+        self.s = self.time, self.currentLocation, self.congestionStatus, self.customerState
+
     def _reset(self):
-        
-        #
-        self.time=0
+        """
+            Initialize the state
 
-        #
-        self.curNode=0
+        :return: tuple
+        """
+        # End Status
+        self.done = False
 
-        #
-        self.congStatus=np.zeros((self.nL,self.nL))     
-        
-        #Remaining nodes: visited 1, non-visited 0 
-        self.remNodes=np.zeros(self.nL)
-        
-        # Start at the beginning (depot node): node, time, congestion status, remaining nodes
-        #Originally no traffic - STORE IT ??
-        self.state= self.time, self.node, self.congStatus, self.remNodes
-        
-        return self.state
-        
+        # Last action
+        self.lastAction = -1
+
+        # Tasks to be accomplished
+        mask_t = self.deliverydata[:, 7] == 'N/A'
+        self.tasks = self.deliverydata[mask_t]
+
+        self.time = self.startTime
+        self.currentLocation = self.deliveryLocations[0]  # First Address: depot
+        self.congestionStatus = np.zeros(self.ndl,self.ndl)  # No congestion at first
+        self.customerState = self.ndl * [0]  # No customer serviced yet,
+        #  only deliveries are known at the beginning. this object gives ID to the jobs to be done
+
+        return self.s
+
+    def _step(self, a):
+        """
+            Give the next state and reward
+
+        :param: a, action. ID of the location to visit, based on self.customerState
+        :return: state, reward, done or not, info
+        """
+        if (a < self.tasks.shape[0] & !(self.done)):
+            # STATE
+            # Increase time
+            self.time += self.timeStep
+
+            # Update locations to visit: new demand maybe !
+            # Update current tasks
+            mask_update = self.time > self.tasksAhead[:, 7]
+            newTasks = self.tasksAhead[mask_update]
+            self.tasks = np.concatenate((self.tasks, newTasks), axis=0)  # Add the new jobs
+
+            # Congestion Status
+            self.congestionStatus = self.congestionupdate()
+
+            # Update customerState, if not the first move
+            if self.lastAction != -1:
+                self.customerState[a] = 1  # due to the action a is visited
+
+            self.customerState += newTasks.shape[0] * [0]  # Add the status of these new jobs
+
+            # Current location
+            self.currentLocation = self.tasks[a, 4]  # Address
+
+            self.lastAction = a
+
+            # REWARD: traveling time from lastAction to a (or depot to a if starting)
+            reward = self.reward()
+
+            # END STATUS
+            if (len(self.customerState) - 1) * [1] in self.customerState:
+                self.done = True
+
+            # INFO
+            info = "A useful info please"
+
+            return self.s, reward, self.done, info
+
+        else:
+            print("Action not available or End of operations")
+
+
     def _render(self, mode='human', close=False):
         ...
 
+    def congestionupdate(self):
+        """
+            Update congestion status
+        :return: np.zeros(self.ndl + self.ndp, self.ndl + self.ndp)
+        """
+        # TODO Implement the function that gives the congestion status (integer) of every routes linking our tasks.
+        # TODO using data or API ? Probably data
+        pass
+
+    def reward(self, a):
+        """
+            Traveling time between lastAction and a
+
+        :return: integer
+        """
+        # TODO estimate traveling time between the locations using fooTools !
+        pass

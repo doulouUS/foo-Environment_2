@@ -1,3 +1,4 @@
+#!/usr/bin/python3.5
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jan 24 15:38:50 2017
@@ -10,11 +11,11 @@ from sklearn.neighbors import KernelDensity
 import csv
 
 
-#import urlib #can't find it !!
-#import json, requests
+# import urlib #can't find it !!
+# import json, requests
 import numpy as np
 
-import re #string splitting
+import re # string splitting
 
 def demandRetriever():
     """
