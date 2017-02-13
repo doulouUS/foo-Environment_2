@@ -144,7 +144,7 @@ def formatAddress():
     
     """
     #Strings to load data
-    stringFile='/Users/Louis/Documents/Research/Code/cleanedData/'
+    stringFile='/media/louis/WIN10OS/Users/e0022825/Documents/Research/data_fedex'
     days={'cleaned01-Dec-2015':2,#tuesday
         'cleaned02-Dec-2015':3,#wednesday
         'cleaned03-Dec-2015':4,#...

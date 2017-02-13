@@ -124,7 +124,7 @@ def jobsToCSV(result,name,clusterNb = 1):
     Address   Longitude   Latitude   Type   ReadyTime   EndTime
     
     """
-    with open(name+'.csv', 'w') as f:  #  Just use 'w' mode in 3.x
+    with open(name+'.csv', 'w') as f:  # Just use 'w' mode in 3.x
         w  =  csv.DictWriter(f, ['Address','Longitude','Latitude','Type','ReadyTime','EndTime'])
         w.writeheader()
         for loc in result['cluster_'+str(clusterNb)].items():
@@ -183,15 +183,35 @@ def roadSegments(locations):
     #  Retrieving values
     statusCode = results['statusCode']
     if statusCode == 200:
-        print(statusCode)
-        travelDistance = results['resourceSets'][0]['resources'][0]['travelDistance']
-        travelDuration = results['resourceSets'][0]['resources'][0]['travelDuration']
-        travelDurationTraffic = results['resourceSets'][0]['resources'][0]['travelDurationTraffic']
-        numberSegments = len(results['resourceSets'][0]['resources'][0]['routeLegs'][0]\
-                        ['itineraryItems'])
-        itineraryItems = results['resourceSets'][0]['resources'][0]['routeLegs'][0]\
-                        ['itineraryItems']
+        # print(statusCode)
+
+        # TODO review the exceptions and modify these basic exception handlings
+        try:
+            travelDistance = results['resourceSets'][0]['resources'][0]['travelDistance']
+        except:
+            travelDistance = 0
+        try:
+            travelDuration = results['resourceSets'][0]['resources'][0]['travelDuration']
+        except:
+            travelDuration = 0
+        try:
+            travelDurationTraffic = results['resourceSets'][0]['resources'][0]['travelDurationTraffic']
+        except:
+            travelDurationTraffic = 0
+
+        try:
+            numberSegments = len(results['resourceSets'][0]['resources'][0]['routeLegs'][0] \
+                                     ['itineraryItems'])
+        except:
+            numberSegments = 0
+        try:
+            itineraryItems = results['resourceSets'][0]['resources'][0]['routeLegs'][0] \
+                ['itineraryItems']
+        except:
+            itineraryItems = 'No items'
+
         pathCoord = results['resourceSets'][0]['resources'][0]['routePath']['line']['coordinates']
+
         roadName = []
         travelDistances = []
         travelDurations = []
@@ -199,11 +219,25 @@ def roadSegments(locations):
 
         for seg in itineraryItems:
             for i in range(len(seg['details'])):
-                print(i)
-                roadName.append(seg['details'][i]['names'])
-                travelDistances.append(seg['travelDistance'])
-                travelDuration.append(seg['travelDuration'])
-                maneuverType.append(seg['details'][i]['maneuverType'])
+                # print(i)
+                try:
+                    roadName.append(seg['details'][i]['names'])
+                except:
+                    roadName.append(0)
+                try:
+                    travelDistances.append(seg['travelDistance'])
+                except:
+                    travelDistances.append(0)
+
+                try:
+                    travelDurations.append(seg['travelDuration'])
+                except:
+                    travelDurations.append(0)
+                try:
+                    maneuverType.append(seg['details'][i]['maneuverType'])
+                except:
+                    maneuverType.append(0)
+
 
         return statusCode,travelDistance,travelDuration,travelDurationTraffic,numberSegments,roadName, \
                travelDistances, travelDurations, maneuverType, pathCoord

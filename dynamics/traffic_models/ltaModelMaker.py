@@ -8,10 +8,11 @@ Created on Wed Feb  1 13:25:31 2017
 import time
 import numpy as np
 import os
-# import sys
+import sys
 # sys.path.append('/home/louis/Documents/Research/Code/foo-Environment_2/dynamics')  # add the path of gym-foo directory
-
+import pickle
 from dynamics.fooTools import *
+from matplotlib import pyplot as plt
 
 
 dataPath = '/media/louis/WIN10OS/Users/e0022825/Documents/Research/dataSpeedBandLTA'
@@ -83,7 +84,7 @@ def speedJSONtoNp(files):
     nb of measured roads
     """
     maxSpeed = []
-    minSpeed = []
+    # minSpeed = []
     ltaroads, nbRoads = ltaRoads(files)  # set of all measured roads, nb of them
 
     for file in files:  # examining each 5mn
@@ -91,31 +92,31 @@ def speedJSONtoNp(files):
         data = loadJSON(dataPath+'/'+file)  # list of dictionary
         roads = ltaRoadsSlot(file)  # roads measured at this time slot
         rowM = []
-        rowm = []
+        # rowm = []
         rowM.append(fileNameToInt(file))
-        rowm.append(fileNameToInt(file))
+        # rowm.append(fileNameToInt(file))
         for i in range(nbRoads):  # for each road (i is the ID)
                 # print(data['value'][i]['RoadName'])
             if i < len(data):  # case where the current file carry info on the i road
                 if (data[i]['RoadName'] in roads and data[i]['MaximumSpeed']):  # road actually measured
                     #  at this time slot
-                    rowM.append(int(data[i]['MaximumSpeed']))
+                    rowM.append(int(data[i]['SpeedBand']))
                 else:
                     rowM.append(-1)  # no measure
 
-                if (data[i]['RoadName'] in roads and data[i]['MinimumSpeed']):  # road actually measured
-                    # at this time slot
-                    rowm.append(int(data[i]['MinimumSpeed']))
-                else:
-                    rowm.append(-1)  # no measure
+                # if (data[i]['RoadName'] in roads and data[i]['MinimumSpeed']):  # road actually measured
+                #     # at this time slot
+                #     rowm.append(int(data[i]['MinimumSpeed']))
+                # else:
+                #     rowm.append(-1)  # no measure
             else:
                 rowM.append(-1)  # no info
-                rowm.append(-1)  # no info
+                # rowm.append(-1)  # no info
         maxSpeed.append(rowM)
-        minSpeed.append(rowm)
+        # minSpeed.append(rowm)
     maxSpeed  = np.asarray(maxSpeed)
-    minSpeed = np.asarray(minSpeed)
-    return maxSpeed, minSpeed, ltaroads, nbRoads
+    # minSpeed = np.asarray(minSpeed)
+    return maxSpeed  # , minSpeed, ltaroads, nbRoads
 
 
 def npArrayToTxt(speedData, name,fmt) :
@@ -134,31 +135,37 @@ def npArrayToTxt(speedData, name,fmt) :
     
 if __name__ == "__main__":
 
-    start = time.time()
-    '''
-    # list of files to be treated: give JSON file names only, not the path
-    path_to_json = '/media/louis/WIN10OS/Users/e0022825/Documents/Research/dataSpeedBandLTA'
-    files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.endswith('.json')]
+    # # list of files to be treated: give JSON file names only, not the path
+    # path_to_json = '/media/louis/WIN10OS/Users/e0022825/Documents/Research/dataSpeedBandLTA'
+    # files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.endswith('.json')]
+    #
+    # # load JSON and generate a np array
+    # band = speedJSONtoNp(files)
+    # print(band.shape)  # 1742,4074?
+    #
+    # # save the array into a text file
+    # fmt = "%.3d"
+    # npArrayToTxt(band,'Band_'+files[0][:-5]+'_'+files[-1][:-5],fmt)
+    # # npArrayToTxt(minSpeed, 'minSpeedBand_09h20-25-01-2017_to_10h30-31-01-2017', fmt)
 
-    # load JSON and generate a np array
-    maxSpeed, minSpeed, roadnames, nbroads = speedJSONtoNp(files)
-    print(maxSpeed.shape)  # 1742,4074?
+    # data
+    Band = np.loadtxt('/home/louis/Documents/Research/Code/foo-Environment_2/dynamics/traffic_models/'
+                           'Band_speedBand09h15-26-01-2017_speedBand17h45-26-01-2017.gz', dtype=int)
 
-    # save the array into a text file
-    fmt = "%.3d"
-    npArrayToTxt(maxSpeed,'maxSpeedBand_'+files[0][:-5]+'_'+files[-1][:-5],fmt)
-    npArrayToTxt(minSpeed, 'minSpeedBand_09h20-25-01-2017_to_10h30-31-01-2017', fmt)
-    '''
+    for routenb in range(4,5):
+        starttime = 7 # o'clock
+        timespan = 12 # hours
+        roads = []
 
-    no_pb = 'speedBand03h15-29-01-2017.json'
-    files = [no_pb]
-    result = ltaRoadsSlot(no_pb)
-    maxSpeed, minSpeed, roadnames, nbroads = speedJSONtoNp(files)
-    print(len(result))
-    print(nbroads)
+        # Road names load the file
+        with open('addresses.lta','rb') as fp:
+            ltaroads = pickle.load(fp)
+            road = ltaroads[routenb - 1]  # road name
+            print(road)
 
-    end = time.time()
+        plt.scatter(range(timespan * 12), Band[(starttime * 12):(timespan * 12 + starttime * 12), routenb], label=road)
+        plt.legend()
 
-    print('Time elapsed:')
-    print(end - start)
+    plt.show()
+
     
