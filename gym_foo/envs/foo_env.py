@@ -52,7 +52,7 @@ class FooEnv(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, deliverydata, startTime='0800' ):
+    def __init__(self, deliverydata, startTime='0800', servTime=6.5 ):
         """
 
 
@@ -90,7 +90,7 @@ class FooEnv(gym.Env):
         self._pickupTime = self.deliverydata[self.mask_p][:, 7]
 
         # Duration of servicing time in mn
-        self.serving_time = 6.5
+        self.serving_time = self.servingtime(servTime)
 
         # Start of operations
         self.startTime = startTime
@@ -218,6 +218,14 @@ class FooEnv(gym.Env):
             print("Action not available or End of operations")
             return [0]*4
 
+
+    def servingtime(self, servTime):
+        """
+            Return the serving time (servicing+potential idle time). TO BE REFINED WITH TIME
+
+        :return: integer or float, time in minutes
+        """
+        return servTime
 
     def _render(self, mode='human', close=False):
         """For now, return human readable information to follow van progress
