@@ -21,6 +21,9 @@ from gym.envs.toy_text import discrete
 from dynamics.fooTools import roadSegments
 import pickle # loading binary files containing data
 import time
+from datetime import date, datetime, timedelta
+from datetime import time as t
+
 import csv
 import os
 import schedule
@@ -29,20 +32,27 @@ from re import split
 def timeupdate(string, timestep):
     """
 
-    :param string 'HHmm', timestep integer
+    :param string 'HHmm', timestep integer in minutes
     :return: string updated 'HHmm'
     """
-    update = int(string) + timestep
-    if update < 1000:
-        update = '0' + str(update)
+    update = datetime.combine(date.today(), t(int(string[0:2]), int(string[2:4]))) + timedelta(minutes=timestep)
 
-    return update
+    if update.hour < 10:
+        if update.minute < 10:
+            return '0' + str(update.hour) + '0' + str(update.minute)
+        else:
+            return '0' + str(update.hour) + str(update.minute)
+    else:
+        if update.minute < 10:
+            return str(update.hour) + '0' + str(update.minute)
+        else:
+            return str(update.hour) + str(update.minute)
 
 class FooEnv(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, deliverydata):
+    def __init__(self, deliverydata, startTime='0800' ):
         """
 
 
@@ -51,6 +61,8 @@ class FooEnv(gym.Env):
             'WrongDayLateCount','RightDayLateCount','FedExID','Longitude','Latitude']
 
             /!\ Make sure the first line of this array is the depot /!\
+
+            startTime: string, 'HHMM'
 
         """
         self.deliverydata = deliverydata
@@ -77,11 +89,11 @@ class FooEnv(gym.Env):
         # Time of appearance of the pickup locations
         self._pickupTime = self.deliverydata[self.mask_p][:, 7]
 
-        # Duration of one time step in mn
-        self.timeStep = 30
+        # Duration of servicing time in mn
+        self.serving_time = 6.5
 
         # Start of operations
-        self.startTime = '0800'  # 8am
+        self.startTime = startTime
 
         # STATE RELATED
         # Number of ways to classify congestion traffic on one arc
@@ -92,9 +104,11 @@ class FooEnv(gym.Env):
         self.time = "0"
         self.currentLocation = 0
         self.durations = []
-        self.customerState = 0
 
-        self.s = self.time, self.currentLocation, self.durations, self.customerState
+        self.tasks = np.zeros((1,1))  # dumb initialization
+        self.visited_customer = [0] * self.tasks.shape[0]  # customer visited (1) and not visited (0) indexed on self.tasks
+
+        self.s = self.time, self.currentLocation, self.durations, self.visited_customer
 
     def _reset(self):
         """
@@ -109,21 +123,22 @@ class FooEnv(gym.Env):
         self.lastAction = -1
 
         # Tasks to be accomplished
-        self.tasks = self.deliverydata[self.mask_d]
-        self._tasksAhead = self.deliverydata[self.mask_p]
+        self.tasks = self.deliverydata[self.mask_d]  # at first only deliveries are known
+        self._tasksAhead = self.deliverydata[self.mask_p]  # pickups to be done in the scenario: invisible to agent
 
         self.time = self.startTime
         self.currentLocation = self.deliveryLocations[0]  # First Address: depot
         try:
             # Read file corresponding to the current time (here self.starttime)
-            with open(self.pathTravelDuration+self.closesttraveldurationfile(), 'rb') as fp:
-                self.durations = pickle.load(fp)
+            self.traveltimereader()
         except:
-            print("WARNING: Setting durations to an empty list because error on travel duration retrieval")
+            print("WARNING: Setting durations to an empty list because error on travel duration retrieval (init)")
             self.durations = []
 
-        self.customerState = self.ndl * [0]  # No customer serviced yet,
-        #  only deliveries are known at the beginning. this object gives an ID to the jobs (their index) to be done
+        self.visited_customer = [1] + [0] * (self.tasks.shape[0] - 1)  # starting from the first task,
+        #  it has been visited => 1
+
+        print("Initialization done.")
 
         return self.s
 
@@ -131,61 +146,103 @@ class FooEnv(gym.Env):
         """
             Give the next state and reward
 
-        :param: a, action. ID of the location to visit, based on self.customerState
+        :param: a, action. index of the location in self.tasks (containing all the possible locations at time self.time
         :return: state, reward, done or not, info
         """
-        if (a < self.tasks.shape[0]) & (not self.done):
-            # STATE
-            # Increase time
-            self.time = timeupdate(self.time,self.timeStep)
+        if a < self.tasks[:, 3].size:
 
-            # Update locations to visit: new demand maybe !
-            # Update current tasks
-            mask_update = self.time > self._tasksAhead[:, 7]
-            newTasks = self._tasksAhead[mask_update]
-            self.tasks = np.concatenate((self.tasks, newTasks), axis=0)  # Add the new jobs
+            if int(self.time) > 1150 and int(self.time) < 1330:  # lunch break at 1145pm # TODO test extensively this !!
+                self.time = '1400'  # only time has changed, but the state remains the same
+                reward = 2 * 3600  # 2 hours in s
+                info = "Lunch break"
+                return self.s, reward, self.done, info
 
-            # Congestion Status
-            try:
-                # Read file corresponding to the current time
-                with open(self.pathTravelDuration + self.closesttraveldurationfile(), 'rb') as fp:
-                    self.durations = pickle.load(fp)
-            except:
-                print("WARNING: Setting durations to an empty list because error on travel duration retrieval")
-                self.durations = []
+            else:
 
-            # Update customerState, if not the first move
-            if self.lastAction != -1:
-                self.customerState[a] = 1  # due to the action a is visited
+                # STATE
+                # Increase time by traveling time (i.e reward) and servicing time and round to have a result
+                #  in mn (compatible with our strings
+                # TODO increase self.time by the reward is not flexible for what comes next: better replace it by traveling times directly
+                self.time = timeupdate(self.time, int(np.round(self.reward(a) / 60 + self.serving_time)))
 
-            self.customerState += newTasks.shape[0] * [0]  # Add the status of these new jobs
+                # REWARD: traveling time from lastAction to a (or depot to a if starting)
+                reward = self.reward(a)
 
-            # Current location
-            self.currentLocation = self.tasks[a, 4]  # Address
+                # Update locations to visit: new demand maybe !
+                # Update current tasks
+                mask_update = int(self.time) > self._tasksAhead[:, 7]
+                newTasks = self._tasksAhead[mask_update]
+                # Among tasks in newTasks, pick the one that are not already in self.tasks
+                # TODO this does not seem to work
+                newTasks = [row for row in newTasks if np.array_equal(np.all(self.tasks == row, axis = 1),\
+                                                                      np.zeros( self.tasks.shape[0], dtype=bool))]
 
-            self.lastAction = a
+                print("NB of NEW TASKSS", len(newTasks))
+                if len(newTasks) != 0:
+                    print("New pickup requested")
 
-            # REWARD: traveling time from lastAction to a (or depot to a if starting)
-            reward = self.reward()
+                    # sort the new tasks by chronological order of appearance
+                    newTasks = np.array(newTasks)
+                    newTasks = newTasks[np.argsort(newTasks[:, 7])]
 
-            # END STATUS
-            if (len(self.customerState) - 1) * [1] in self.customerState:
-                self.done = True
+                    self.tasks = np.concatenate((self.tasks, newTasks), axis=0)  # Add the new jobs
+                    self.visited_customer.extend(len(newTasks) *[0])  # Add new jobs to be done
 
-            # INFO
-            info = "A useful info please"
+                # Congestion Status
+                try:
+                    # Read file corresponding to the current time
+                    self.traveltimereader()
+                except:
+                    print("WARNING: Setting durations to an empty list because error on travel duration retrieval")
+                    self.durations = []
 
-            return self.s, reward, self.done, info
+                # Update customerState, if not the first move
+                print("list of tasks size ", self.visited_customer)
+                self.visited_customer[a] += 1
+
+                # Current location
+                self.currentLocation = self.tasks[a, 4]  # Address
+
+                self.lastAction = a
+
+                # END STATUS
+                if (len(self.visited_customer) == (self.ndl + self._npl)):
+                    self.done = True
+
+                # INFO
+                info = "A useful info please"
+
+                return self.s, reward, self.done, info
 
         else:
             print("Action not available or End of operations")
+            return [0]*4
 
 
     def _render(self, mode='human', close=False):
-        ...
+        """For now, return human readable information to follow van progress
+
+        :param mode:
+        :param close:
+        :return:
+        """
+        # TODO If time permits, display a more meaningful congestion status (colored graph depending on travel duration)
+        # Retrieve string addresses of locations to visit
+        with open('/home/louis/Documents/Research/Code/foo-Environment_2/gym_foo/envs/addresses.fedex', 'rb') as fp:
+            addresses = pickle.load(fp)
+
+        print("-" * 33 + '|' + "-" * 35)
+        print("Current time: (before servicing) | ", self.time)
+        print("-" * 33 + '|' + "-" * 35)
+        print("Current Location: (to be served) | " + addresses[int(self.currentLocation)])
+        print("-" * 33 + '|' + "-" * 35)
+        print("Congestion Status:               | to be DONE ....")
+        print("-" * 33 + '|' + "-" * 35)
+
+        return 0
 
     def infolinks(self):
-        """
+        """Gives info about all the links between the locations to visit
             Two approaches:
                 1. Congestion status is based on data retrieved using bing API
                     => function return global travel time
@@ -212,23 +269,21 @@ class FooEnv(gym.Env):
         coordPaths = [] # "     "       route coordinates
         travelDurations = []  # " " the travel durations
 
-        for idxStart in range(self.locations.size - 1):
+        for idxStart in range(self.locations.size - 1):  # TODO this -1 is certainly WRONG !
             subroad = [] # contains all the roads starting from idxStart
             subcoordPaths = []
             subtravelDuration = []
 
             for idxEnd in range(idxStart + 1, self.locations.size):
                 # Retrieve string addresses of locations to visit
-                with open('/home/louis/Documents/Research/Code/foo-Environment_2/gym_foo/envs/addresses.fedex', 'rb') as fp:
-                    addresses = pickle.load(fp)
-                    location1 = addresses[int(self.locations[idxStart])]
-                    location2 = addresses[int(self.locations[idxEnd])]
-                    # print(location1)
-                    # print(location2)
+
+                location1 = self.addressretriever(self.locations[idxStart])
+                location2 = self.addressretriever(self.locations[idxEnd])
+                # print(location1)
+                # print(location2)
                 # Route
                 statusCode, travdistance, travdur, travelDurationTraffic, nbSegments, roadName, \
                 travdistances, travdurs, maneType, pathCoord = roadSegments([location1+' Singapore', location2+' Singapore'])
-
                 # print("No traffic travel time")
                 # print(travdur)
 
@@ -252,24 +307,79 @@ class FooEnv(gym.Env):
         :param time: string, self
         :return: string, file name
         """
-        # TODO check that it actually works once some data has been retrieved
-        files = os.listdir(self.pathTravelDuration)
-        # retrieve files generated +/- 10mn from self.time
-        file = [f for f in files if (int(split('_',f)[-1]) > (int(self.time)-10) and int(split('_',f)[-1]) < (int(self.time)+10))]
 
-        return file[0]
+        files = os.listdir(self.pathTravelDuration)
+        # retrieve files generated +/- 8mn from self.time: can BE MODIFIED if enough data !
+
+        upTime = datetime.combine(date.today(), t(int(self.time[0:2]), int(self.time[2:4])))\
+                 + timedelta(minutes=10)
+
+        downTime = datetime.combine(date.today(), t(int(self.time[0:2]), int(self.time[2:4])))\
+                 - timedelta(minutes=10)
+
+        file = [f for f in files if t(int(split('_', f)[-1][0:2]), int(split('_', f)[-1][2:4])) < upTime.time() and t(int(split('_',f)[-1][0:2]), int(split('_',f)[-1][2:4])) > downTime.time() ]
+        print("Travel duration file used: ", file[0])
+        return file
+
+    def addressretriever(self, id):
+        """
+
+        :param id: integer or np.float (but that can be converted to an int), id of the address
+        :return: string, human readable address
+        """
+        with open('/home/louis/Documents/Research/Code/foo-Environment_2/gym_foo/envs/addresses.fedex', 'rb') as fp:
+            addresses = pickle.load(fp)
+
+        return addresses[int(id)]
+
+    def traveltimereader(self):
+        """
+
+        :param a: integer, index of the starting point
+        :param b: integer, index of the ending point
+        :param time: string giving the desired time when we need the travel time ('HHMM')
+        :return: integer, nb of seconds
+        """
+        files = os.listdir(self.pathTravelDuration)
+        # retrieve files generated +/- 8mn from self.time: can BE MODIFIED if enough data !
+
+
+        file = [f for f in files if
+                (int(split('_', f)[-1]) > (int(self.time) - 8) and int(split('_', f)[-1]) < (int(self.time) + 8))]
+
+
+
+
+        with open(self.pathTravelDuration + self.closesttraveldurationfile()[0], 'rb') as fp:
+            print()
+            self.durations = pickle.load(fp)
+        return self.durations
 
 
     def reward(self, a):
         """
             Traveling time between lastAction and a
 
-        :return: integer
+        :return: integer, nb of seconds
         """
-        # TODO read durations ! solve the problem of indexing: action should be indexed on self.customerState ? por self.tasks ?
-        # return self.durations[self.lastAction][]
-        pass
-    
+        # TODO test it: pb when no travel time haas been retrieved (durations -> 0 )
+        # print(self.lastAction)
+        try:
+            if self.lastAction != -1:
+                if self.lastAction < a:
+                   return self.durations[self.lastAction][a - self.lastAction -1]
+                else:
+                   return self.durations[a][self.lastAction - a -1]  # list of list built as a triangular matrix...
+
+            else:
+                return self.durations[0][a-1]  # First move always start from self.tasks[0, :]
+
+
+        except:
+            print("Error in the reward function: assigned a duration at random....")
+            return 1000
+
+
     def traveldurationdata(self, cluster):
         """Retrieve Bing API travel durations with traffic for all the instance's locations to visit
 
