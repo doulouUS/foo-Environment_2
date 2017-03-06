@@ -19,6 +19,9 @@ import numpy as np
 import dynamics.fooTools as fooTools
 import dynamics.demand_models.demandModels as dMod
 import gym_foo.envs.foo_env as foo_env
+# Agents import
+from Agents.agent_0_fedex import agent_0_fedex as ag0 # FedEx
+from Agents.agent_1_MC import agent_1_MC as ag1 # FedEx
 import dynamics.traffic_models.ltaModelMaker as lta
 from matplotlib import pyplot as plt
 from datetime import datetime
@@ -38,53 +41,20 @@ if __name__ == "__main__":
 
     deliverydata = deliverydata[123:156, :]  # 4th truck (we removed the first task because of data paucity)
     print(len(deliverydata))
-    # class instance
-    instance1 = foo_env.FooEnv(deliverydata, '1022')
+
+    # class instance and configuration
+    instance1 = foo_env.FooEnv(deliverydata, startTime='1022', servTime=6.5)
+
     # Initialize
     instance1.reset()
     serviceTime = deliverydata[:, 3]
     timeGap = []
     FMT = '%H%M'
 
-    #instance1.time = '1410'
+    # Fedex real case
+    # ag0(instance1)
 
+    # First Algorithm
+    ag1()
 
-    #durations = instance1.traveltimereader()
-    #print(len(durations[17]))
-
-
-
-
-    # a: index of the place to visit (action) in the FedEx order !
-    a = 1
-    while (not instance1.done):
-
-        # adapt the FedEx actions to the tasks order
-        a_new = np.argwhere(  instance1.tasks[:, 4] == instance1.deliverydata[a, 4] )
-
-        # case with 2 similar addresses
-        a_new =  int(a_new[0]) if instance1.visited_customer[int(a_new[0])] == 0 else int(a_new[1])
-        print("action ", a)
-        s, reward, done, info = instance1.step(a_new)
-        if info == 'Lunch break':
-
-            # replay this same action !
-            instance1.render()
-            instance1.step(a_new)
-        a += 1
-            # break
-        instance1.render()
-        print("Total number of known tasks ", instance1.tasks[:, 3].size)
-
-        print('_' * 50)
-        print('_' * 50)
-        print('_' * 50)
-
-        # print(instance1.time)
-        # print(str(serviceTime[a]))
-        # tdelta =  datetime.strptime(str(int(serviceTime[a])), FMT) - datetime.strptime(instance1.time, FMT)
-    #     print(tdelta.seconds)
-    #     timeGap.append(tdelta.seconds /60)
-    # plt.scatter(range(len(timeGap)), timeGap)
-    # plt.show()
 
