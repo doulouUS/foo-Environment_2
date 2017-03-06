@@ -10,12 +10,13 @@ import time
 from sklearn.neighbors import KernelDensity
 import csv
 
-
-# import urlib #can't find it !!
 # import json, requests
 import numpy as np
 
 import re # string splitting
+
+# Ubuntu fedex.data path
+fedex_data_path = "/home/louis/Documents/Research/Code/foo-Environment_2/dynamics/demand_models/"
 
 def demandRetriever():
     """
@@ -122,6 +123,38 @@ def modelGenerator(data,day,startTime,timeSpan):
                         kernel='gaussian', algorithm='ball_tree')
     kde.fit(data[mask][:,1:3])#remove unnecessary features (day, times)
 
+    return kde
+
+
+# VERSION 2 for fedex.data file (very smilar to the previous one
+def modelGenerator_fedex_data(data, day, startTime, timeSpan):
+    """
+
+    @Input
+        data: np.array, fedex.data (complete data)
+        day: str, day of the week NO CAPITAL LETTER
+        startTime: int, starting time of the time slot (1030 => 10h30mn)
+        timeSpan: int, length in mn of the time slot
+            /!\ Add geographic boundaries later ? /!\
+            /?\ Options in KernelDensity : gaussian kernel, bandwidth etc.  /?\
+
+    @Output
+        KernelDensity object representing the demand probability distribution
+        at the time corresponding to the inputs.
+
+
+    """
+    start = time.time()
+    days = {'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6}
+    mask = (data[:, 1] == int(days[day])) & (data[:, 7] > startTime) & (data[:, 7] < startTime + timeSpan)
+    print(data[mask].shape)
+
+    # Corresponding KernelDensity model: Parameters to be reviewed !!
+    kde = KernelDensity(bandwidth=0.04,
+                        kernel='gaussian', algorithm='ball_tree')
+    kde.fit(data[mask][:, -2:])  # meaningful features: Longitudes and Latitudes
+    end = time.time()
+    print(end - start)
     return kde
     
 #kde.sample(3) #sample 3 coordinates
