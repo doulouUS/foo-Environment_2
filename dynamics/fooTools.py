@@ -147,7 +147,7 @@ def jobsToCSV(result,name,clusterNb = 1):
 #                        Routing related
 # ------------------------------------------------------------------------------
     
-def roadSegments(locations):
+def roadSegments(locations, API_key="Avah46_M-gfFeQ3P1w09Qq1ElAV9ZEHFDm9b8JRCRa8qPP5uVn21hDqAPVJgV4i_"):
     """Given 2 locations, return all the road segments joinning 
     these locations.
     

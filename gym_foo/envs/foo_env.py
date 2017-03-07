@@ -80,6 +80,13 @@ class FooEnv(gym.Env):
         self._pickupLocations = self.deliverydata[self.mask_p][:, 4]  # ID of the pickup addresses
         self._npl = np.size(self._pickupLocations)  # Number of pickup locations
 
+        # Coordinates boundaries (to help localize the overall zone of operations)
+        max_long = np.max(self.deliverydata[:, 13])
+        min_long = np.min(self.deliverydata[:, 13])
+        max_lat = np.max(self.deliverydata[:, 14])
+        min_lat = np.min(self.deliverydata[:, 14])
+        self.coord_boundaries = [max_long, min_long, max_lat, min_lat]
+
         # TRAFFIC RELATED
         # datapath containing the travel duration time
         self.pathTravelDuration = '/home/louis/Documents/Research/Code/foo-Environment_2/gym_foo/envs/' \
@@ -151,7 +158,7 @@ class FooEnv(gym.Env):
         """
         if a < self.tasks[:, 3].size:
 
-            if int(self.time) > 1150 and int(self.time) < 1330:  # lunch break at 1145pm # TODO test extensively this !!
+            if int(self.time) > 1150 and int(self.time) < 1330:  # lunch break at 1145pm #
                 self.time = '1400'  # only time has changed, but the state remains the same
                 reward = 2 * 3600  # 2 hours in s
                 info = "Lunch break"
@@ -162,7 +169,7 @@ class FooEnv(gym.Env):
                 # STATE
                 # Increase time by traveling time (i.e reward) and servicing time and round to have a result
                 #  in mn (compatible with our strings
-                # TODO increase self.time by the reward is not flexible for what comes next: better replace it by traveling times directly
+                # TODO increase self.time by the reward is not flexible for what comes next: better replace it by a traveling time function
                 self.time = timeupdate(self.time, int(np.round(self.reward(a) / 60 + self.serving_time)))
 
                 # REWARD: traveling time from lastAction to a (or depot to a if starting)
@@ -173,7 +180,6 @@ class FooEnv(gym.Env):
                 mask_update = int(self.time) > self._tasksAhead[:, 7]
                 newTasks = self._tasksAhead[mask_update]
                 # Among tasks in newTasks, pick the one that are not already in self.tasks
-                # TODO this does not seem to work
                 newTasks = [row for row in newTasks if np.array_equal(np.all(self.tasks == row, axis = 1),\
                                                                       np.zeros( self.tasks.shape[0], dtype=bool))]
 

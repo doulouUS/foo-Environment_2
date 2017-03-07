@@ -34,15 +34,15 @@ if __name__ == "__main__":
 
     # files_speed_band = os.listdir('/media/louis/WIN10OS/Users/e0022825/Documents/Research/dataSpeedBandLTA')
 
-    # load delivery data
+    # -------------------- load scenario----------------------------------
     deliverydata = np.loadtxt(datapath + "fedex.data")
     mask = deliverydata[:, 0] == 2122015  # 2 dec 2015
     deliverydata = deliverydata[mask]
 
     deliverydata = deliverydata[123:156, :]  # 4th truck (we removed the first task because of data paucity)
-    print(len(deliverydata))
+    # print(len(deliverydata))
 
-    # class instance and configuration
+    # -------------------- class instance and configuration--------------------
     instance1 = foo_env.FooEnv(deliverydata, startTime='1022', servTime=6.5)
 
     # Initialize
@@ -51,10 +51,12 @@ if __name__ == "__main__":
     timeGap = []
     FMT = '%H%M'
 
+    # -------------------- Run agent on scenario --------------------
+
     # Fedex real case
     # ag0(instance1)
 
     # First Algorithm
-    ag1()
+    ag1(instance1)
 
 
