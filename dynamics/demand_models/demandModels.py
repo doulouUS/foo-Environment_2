@@ -127,16 +127,22 @@ def modelGenerator(data,day,startTime,timeSpan):
 
 
 # VERSION 2 for fedex.data file (very smilar to the previous one
-def modelGenerator_fedex_data(data, day, startTime, timeSpan):
+def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries):
     """
 
     @Input
-        data: np.array, fedex.data (complete data)
-        day: str, day of the week NO CAPITAL LETTER
+        data: np.array, fedex.data minus the day for which we want to model the demand
+        day: int, 1: monday - 2: tuesday - 3: wednesday - 4: thursday - 5: friday - 6: saturday
         startTime: int, starting time of the time slot (1030 => 10h30mn)
         timeSpan: int, length in mn of the time slot
             /!\ Add geographic boundaries later ? /!\
             /?\ Options in KernelDensity : gaussian kernel, bandwidth etc.  /?\
+
+        Define the area to generate demand
+        max_long: float
+        min_long:
+        max_lat:
+        min_lat:
 
     @Output
         KernelDensity object representing the demand probability distribution
@@ -145,16 +151,19 @@ def modelGenerator_fedex_data(data, day, startTime, timeSpan):
 
     """
     start = time.time()
-    days = {'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6}
-    mask = (data[:, 1] == int(days[day])) & (data[:, 7] > startTime) & (data[:, 7] < startTime + timeSpan)
-    print(data[mask].shape)
+    # only demand appearing on the day, time slot and region concerned
+    mask = (data[:, 1] == day) & (data[:, 7] > startTime) & (data[:, 7] < startTime + timeSpan ) \
+           & (data[:, 13] < coord_boundaries[0]) & (data[:, 13] > coord_boundaries[1]) & (data[:, 14] < coord_boundaries[2])\
+           & (data[:, 14] > coord_boundaries[3])
 
     # Corresponding KernelDensity model: Parameters to be reviewed !!
+    print("Number of historical events used to established KDE model: ", data[mask][:, 0].shape)
+
     kde = KernelDensity(bandwidth=0.04,
                         kernel='gaussian', algorithm='ball_tree')
     kde.fit(data[mask][:, -2:])  # meaningful features: Longitudes and Latitudes
     end = time.time()
-    print(end - start)
+    print("KDE model building duration: ", end - start)
     return kde
     
 #kde.sample(3) #sample 3 coordinates
