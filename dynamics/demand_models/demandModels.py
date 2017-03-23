@@ -1,3 +1,4 @@
+#!/usr/bin/python3.5
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jan 24 15:38:50 2017
@@ -9,12 +10,13 @@ import time
 from sklearn.neighbors import KernelDensity
 import csv
 
-
-#import urlib #can't find it !!
-#import json, requests
+# import json, requests
 import numpy as np
 
-import re #string splitting
+import re # string splitting
+
+# Ubuntu fedex.data path
+fedex_data_path = "/home/louis/Documents/Research/Code/foo-Environment_2/dynamics/demand_models/"
 
 def demandRetriever():
     """
@@ -122,6 +124,47 @@ def modelGenerator(data,day,startTime,timeSpan):
     kde.fit(data[mask][:,1:3])#remove unnecessary features (day, times)
 
     return kde
+
+
+# VERSION 2 for fedex.data file (very smilar to the previous one
+def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries, bandwidth=70):
+    """
+
+    @Input
+        data: np.array, fedex.data minus the day for which we want to model the demand
+        day: int, 1: monday - 2: tuesday - 3: wednesday - 4: thursday - 5: friday - 6: saturday
+        startTime: int, starting time of the time slot (1030 => 10h30mn)
+        timeSpan: int, length in mn of the time slot
+            /!\ Add geographic boundaries later ? /!\
+            /?\ Options in KernelDensity : gaussian kernel, bandwidth etc.  /?\
+        coord_boundaries: list 4 elements (floats)   max_long, min_long, max_lat, min_lat
+
+        Define the area to generate demand
+:
+
+    @Output
+        KernelDensity object representing the demand probability distribution
+        at the time corresponding to the inputs.
+
+
+    """
+    start = time.time()
+    # only demand appearing on the day, time slot and region concerned
+    mask = (data[:, 1] == day) & (data[:, 7] > startTime) & (data[:, 7] < startTime + timeSpan ) \
+           & (data[:, 13] < coord_boundaries[0]) & (data[:, 13] > coord_boundaries[1]) & (data[:, 14] < coord_boundaries[2])\
+           & (data[:, 14] > coord_boundaries[3])
+
+    # Corresponding KernelDensity model: Parameters to be reviewed !!
+    print("Number of historical events used to established KDE model: ", data[mask][:, 0].shape)
+    Xtrain = data[mask][:, -2:]
+    kde = KernelDensity(bandwidth=(np.max(data[:, 0])-np.min(data[:, 0]))/bandwidth,
+                        kernel='gaussian', algorithm='ball_tree')
+
+    # Xtrain *= np.pi / 180  # lat/long to radian
+    kde.fit(Xtrain)  # meaningful features: Longitudes and Latitudes
+    end = time.time()
+    print("KDE model building duration: ", end - start)
+    return kde
     
 #kde.sample(3) #sample 3 coordinates
   
@@ -143,7 +186,7 @@ def formatAddress():
     
     """
     #Strings to load data
-    stringFile='/Users/Louis/Documents/Research/Code/cleanedData/'
+    stringFile='/media/louis/WIN10OS/Users/e0022825/Documents/Research/data_fedex'
     days={'cleaned01-Dec-2015':2,#tuesday
         'cleaned02-Dec-2015':3,#wednesday
         'cleaned03-Dec-2015':4,#...
