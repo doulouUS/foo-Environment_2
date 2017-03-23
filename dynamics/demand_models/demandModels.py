@@ -127,7 +127,7 @@ def modelGenerator(data,day,startTime,timeSpan):
 
 
 # VERSION 2 for fedex.data file (very smilar to the previous one
-def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries):
+def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries, bandwidth=70):
     """
 
     @Input
@@ -137,12 +137,10 @@ def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries):
         timeSpan: int, length in mn of the time slot
             /!\ Add geographic boundaries later ? /!\
             /?\ Options in KernelDensity : gaussian kernel, bandwidth etc.  /?\
+        coord_boundaries: list 4 elements (floats)   max_long, min_long, max_lat, min_lat
 
         Define the area to generate demand
-        max_long: float
-        min_long:
-        max_lat:
-        min_lat:
+:
 
     @Output
         KernelDensity object representing the demand probability distribution
@@ -158,10 +156,12 @@ def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries):
 
     # Corresponding KernelDensity model: Parameters to be reviewed !!
     print("Number of historical events used to established KDE model: ", data[mask][:, 0].shape)
-
-    kde = KernelDensity(bandwidth=0.04,
+    Xtrain = data[mask][:, -2:]
+    kde = KernelDensity(bandwidth=(np.max(data[:, 0])-np.min(data[:, 0]))/bandwidth,
                         kernel='gaussian', algorithm='ball_tree')
-    kde.fit(data[mask][:, -2:])  # meaningful features: Longitudes and Latitudes
+
+    # Xtrain *= np.pi / 180  # lat/long to radian
+    kde.fit(Xtrain)  # meaningful features: Longitudes and Latitudes
     end = time.time()
     print("KDE model building duration: ", end - start)
     return kde

@@ -19,6 +19,7 @@ import numpy as np
 import dynamics.fooTools as fooTools
 import dynamics.demand_models.demandModels as dMod
 import gym_foo.envs.foo_env as foo_env
+
 # Agents import
 from Agents.agent_0_fedex import agent_0_fedex as ag0 # FedEx
 from Agents.agent_1_MC import agent_1_MC as ag1 # FedEx
@@ -35,6 +36,8 @@ if __name__ == "__main__":
     # files_speed_band = os.listdir('/media/louis/WIN10OS/Users/e0022825/Documents/Research/dataSpeedBandLTA')
 
     # -------------------- load scenario----------------------------------
+
+    # TODO add a line for the depot
     deliverydata = np.loadtxt(datapath + "fedex.data")
     mask = deliverydata[:, 0] == 2122015  # 2 dec 2015
     deliverydata = deliverydata[mask]
@@ -54,9 +57,9 @@ if __name__ == "__main__":
     # -------------------- Run agent on scenario --------------------
 
     # Fedex real case
-    # ag0(instance1)
+    ag0(instance1)
 
     # First Algorithm
-    ag1(instance1)
+    #ag1(instance1, nb_sim=1)
 
 

@@ -4,19 +4,19 @@ Created on Wed Jan  11 10:10:58 2017
 
 @author: Louis DOUGE
 """
-import json
-import urllib.parse
-from urllib.parse import urlparse
-import httplib2 as http #External library
+# import json
+# import urllib.parse
+# from urllib.parse import urlparse
+# import httplib2 as http #External library
 
 import numpy as np
-import math
-import itertools as it
+# import math
+# import itertools as it
 
 import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
-from gym.envs.toy_text import discrete
+# from gym import error, spaces, utils
+# from gym.utils import seeding
+# from gym.envs.toy_text import discrete
 
 from dynamics.fooTools import roadSegments
 import pickle # loading binary files containing data
@@ -24,7 +24,7 @@ import time
 from datetime import date, datetime, timedelta
 from datetime import time as t
 
-import csv
+# import csv
 import os
 import schedule
 from re import split
@@ -50,6 +50,7 @@ def timeupdate(string, timestep):
 
 class FooEnv(gym.Env):
 
+    # TODO clarify what is invisible or not from the agent perspective (using _)
     metadata = {'render.modes': ['human']}
 
     def __init__(self, deliverydata, startTime='0800', servTime=6.5 ):
@@ -84,7 +85,7 @@ class FooEnv(gym.Env):
         max_long = np.max(self.deliverydata[:, 13])
         min_long = np.min(self.deliverydata[:, 13])
         max_lat = np.max(self.deliverydata[:, 14])
-        min_lat = np.min(self.deliverydata[:, 14])
+        min_lat = np.min(self   .deliverydata[:, 14])
         self.coord_boundaries = [max_long, min_long, max_lat, min_lat]
 
         # TRAFFIC RELATED
@@ -133,7 +134,26 @@ class FooEnv(gym.Env):
         self.tasks = self.deliverydata[self.mask_d]  # at first only deliveries are known
         self._tasksAhead = self.deliverydata[self.mask_p]  # pickups to be done in the scenario: invisible to agent
 
+        # Time
         self.time = self.startTime
+
+        # Add pickup already known
+        mask_update = int(self.time) > self._tasksAhead[:, 7]
+        newTasks = self._tasksAhead[mask_update]
+        # Among tasks in newTasks, pick the one that are not already in self.tasks
+        newTasks = [row for row in newTasks if np.array_equal(np.all(self.tasks == row, axis=1), \
+                                                              np.zeros(self.tasks.shape[0], dtype=bool))]
+        print("NB of NEW TASKSS", len(newTasks))
+        if len(newTasks) != 0:
+            print("New pickup requested")
+
+            # sort the new tasks by chronological order of appearance
+            newTasks = np.array(newTasks)
+            newTasks = newTasks[np.argsort(newTasks[:, 7])]
+
+            self.tasks = np.concatenate((self.tasks, newTasks), axis=0)  # Add the new jobs
+            self.visited_customer.extend(len(newTasks) * [0])  # Add new jobs to be done
+
         self.currentLocation = self.deliveryLocations[0]  # First Address: depot
         try:
             # Read file corresponding to the current time (here self.starttime)
