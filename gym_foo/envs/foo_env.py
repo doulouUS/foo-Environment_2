@@ -111,10 +111,12 @@ class FooEnv(gym.Env):
         # Define the state, see _reset() for a meaningful initialization
         self.time = "0"
         self.currentLocation = 0
+        self.currentCoords = []
         self.durations = []
 
         self.tasks = np.zeros((1,1))  # dumb initialization
         self.visited_customer = [0] * self.tasks.shape[0]  # customer visited (1) and not visited (0) indexed on self.tasks
+        # this list gives the locations that are to be serviced at self.time
 
         self.s = self.time, self.currentLocation, self.durations, self.visited_customer
 
@@ -155,6 +157,7 @@ class FooEnv(gym.Env):
             self.visited_customer.extend(len(newTasks) * [0])  # Add new jobs to be done
 
         self.currentLocation = self.deliveryLocations[0]  # First Address: depot
+        self.currentCoords = self.deliverydata[0, -2:]  # First coordinates
         try:
             # Read file corresponding to the current time (here self.starttime)
             self.traveltimereader()
@@ -228,6 +231,7 @@ class FooEnv(gym.Env):
 
                 # Current location
                 self.currentLocation = self.tasks[a, 4]  # Address
+                self.currentCoords = self.tasks[a, -2:]  # Coords
 
                 self.lastAction = a
 
@@ -269,6 +273,8 @@ class FooEnv(gym.Env):
         print("Current time: (before servicing) | ", self.time)
         print("-" * 33 + '|' + "-" * 35)
         print("Current Location: (to be served) | " + addresses[int(self.currentLocation)])
+        print("-" * 33 + '|' + "-" * 35)
+        print("Current Coordinates:             | ", self.currentCoords)
         print("-" * 33 + '|' + "-" * 35)
         print("Congestion Status:               | to be DONE ....")
         print("-" * 33 + '|' + "-" * 35)

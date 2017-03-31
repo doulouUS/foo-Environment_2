@@ -88,63 +88,76 @@ def datatomodel():
     cmap = plt.get_cmap('jet')
     colors = cmap(np.linspace(0, 1, len(files)))
 
-    # Storing coefficients, intervals and time
-    coeff = []
-    time = []
-    # intervals = []
 
-    # for file, color in zip(files, colors):
-    file = "traveltime_3-14_1000"
-    color = colors[0]
-    with open(abspath + file,'rb') as ff:
-        dist = pickle.load(ff)
+    # Create array to store the model
+    models = np.zeros((1, 10))
 
-    time.append(int(re.split("_", file)[-1]))  # eg 1008
+    for file, color in zip(files, colors):
+        # file = "traveltime_3-14_1000"
+        color = colors[0]
+        with open(abspath + file,'rb') as ff:
+            dist = pickle.load(ff)
 
-    # STAT
-    # poly regression. degree 2 ; y = coeff[0] + coeff[1]*x + coeff[2]*x^2
-    n = len(dist[0])
+        # STAT
+        # poly regression. degree 2 ; y = coeff[0] + coeff[1]*x + coeff[2]*x^2
+        n = len(dist[0])
 
-    p, v = poly.polyfit(dist[0], dist[1], 2 ,full=True)
-    m = p.size
-    DF = n - m
-    t = stats.t.ppf(0.95, n - m)  # used for CI and PI bands
-    s_err = np.sqrt(v[0]/DF)
+        p, v = poly.polyfit(dist[0], dist[1], 2 ,full=True)
+        m = p.size
+        DF = n - m
+        t = stats.t.ppf(0.95, n - m)  # used for CI and PI bands
+        s_err = np.sqrt(v[0]/DF)
 
-    coeff.append(list(p))
-    # store each of these coeff, correspondingly to their time slot + Confidence Interval to compute your Standard Deviation next !
+        # store each of these coeff, correspondingly to their time slot + Confidence Interval to compute your Standard Deviation next !
 
-    # GENERATE MODEL and VIEWING along with the values
-    x_new = np.linspace(min(dist[0]), max(dist[0]), 100)
-    x = dist[0]
+        # GENERATE MODEL and VIEWING along with the values
+        x_new = np.linspace(min(dist[0]), max(dist[0]), 100)
+        x = dist[0]
+        mean = np.mean(x)
+        errMeanSq = np.sum((x - np.mean(x)) ** 2)
 
-    # we want to compute the prediction intervals, that take into account the tendecy of y to fluctuate from its mean value
-    # Prediction Interval
-    # see http://stackoverflow.com/questions/27164114/show-confidence-limits-and-prediction-limits-in-scatter-plot
-    PI = t * s_err * np.sqrt(1 + 1 / n + (x_new - np.mean(x)) ** 2 / np.sum((dist[0] - np.mean(x)) ** 2))
+        # # we want to compute the prediction intervals, that take into account the tendecy of y to fluctuate from its mean value
+        # # Prediction Interval
+        # # see http://stackoverflow.com/questions/27164114/show-confidence-limits-and-prediction-limits-in-scatter-plot
+        # PI = t * s_err * np.sqrt(1 + 1 / n + (x_new - mean) ** 2 / errMeanSq)
+        #
+        # # Confidence Interval
+        # CI = t * s_err * np.sqrt(1 / n + (x_new - mean) ** 2 / errMeanSq)
+        #
+        # ffit = poly.polyval(x_new, coeff[-1])
+        # plt.plot(x_new, ffit, '--k', label="Polynomial fitting at "+re.split('_', file)[-1], color=color)
+        # plt.plot(x_new, ffit + PI, label="CI upper bound")
+        # plt.plot(x_new, ffit - PI, label="CI lower bound")
+        #
+        # # plt.plot(dist[0], dist[1], 'yo')
+        # plt.legend(loc="best")
+        # plt.title("Models for Travel times vs Distance at different times of the day (based on 279 randomly chosen trips)")
+        # plt.show()
 
-    # Confidence Interval
-    CI = t * s_err * np.sqrt(1 / n + (x_new - np.mean(x)) ** 2 / np.sum((x - np.mean(x)) ** 2))
+        dayMonth = re.split("-", re.split("_", file)[-2])
+        day = dayMonth[-1]
+        month = dayMonth[-2]
+        model = np.array([[int('2015' + '0'+ month  + day),
+                          int(re.split("_", file)[-1]),
+                         p[0],
+                          p[1],
+                          p[2],
+                         t,
+                         s_err,
+                         n,
+                         mean,
+                         errMeanSq]])
 
-    ffit = poly.polyval(x_new, coeff[-1])
-    plt.plot(x_new, ffit, '--k', label="Polynomial fitting at "+re.split('_', file)[-1], color=color)
-    plt.plot(x_new, ffit + PI, label="CI upper bound")
-    plt.plot(x_new, ffit - PI, label="CI lower bound")
-
-    plt.plot(dist[0], dist[1], 'yo')
-
-    # Confidence intervals
-    # ...
-    # intervals.append(
-
-
-    plt.legend(loc="best")
-    plt.title("Models for Travel times vs Distance at different times of the day (based on 279 randomly chosen trips)")
-    plt.show()
+        models = np.append(models, model, axis=0)
 
 
-    # Storing coeff and confidence intervals
-    # store = [time, coeff, intervals]
+    print(models.shape)
+
+    header = "DATE, TIME OF THE DAY, C, B, A, t, s_err, n, mean,  errMeanSa"
+    fmt = ['%.8d', '%.4d', '%.8f', '%.8f', '%.8f', '%.8f', '%.8f', '%.4d', '%.8f', '%.8f']
+    np.savetxt("traveltime_stats.txt", models, fmt=fmt, header=header)
+
+    # Storing the models
     # with open("traveltime_stats", "wb") as st:
     #    pickle.dump(store, st)
 
@@ -154,6 +167,7 @@ def datatomodel():
     # STD from confidence intervals
 
     # Proba from demands model (using KDE) => see kde.score_samples(x_new)
+
 
     return 0
 

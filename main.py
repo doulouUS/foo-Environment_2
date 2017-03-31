@@ -22,7 +22,7 @@ import gym_foo.envs.foo_env as foo_env
 
 # Agents import
 from Agents.agent_0_fedex import agent_0_fedex as ag0 # FedEx
-from Agents.agent_1_MC import agent_1_MC as ag1 # FedEx
+from Agents.agent_1_MC import agent1 as ag1 # FedEx
 import dynamics.traffic_models.ltaModelMaker as lta
 from matplotlib import pyplot as plt
 from datetime import datetime
@@ -56,10 +56,13 @@ if __name__ == "__main__":
 
     # -------------------- Run agent on scenario --------------------
 
-    # Fedex real case
-    ag0(instance1)
+    # Alg0 Fedex real case
+    # ag0(instance1)
 
-    # First Algorithm
-    #ag1(instance1, nb_sim=1)
+    # Alg1
+    # Creation of an agent
+    agent = ag1(instance1, bandwdth=80)
+    mean, std = agent.mean_pi(5)
+    print(mean, std)
 
 

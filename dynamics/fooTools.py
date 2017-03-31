@@ -272,7 +272,8 @@ def fetch_all_lta(url):
     url_bus_stops = "http://datamall2.mytransport.sg/ltaodataservice/BusStops"    
     url_incident = "http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents"    
     url_taxi = "http://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
-    
+    url_travel_time = http://datamall.mytransport.sg/ltaodataservice.svc/TravelTimeSet
+
     @Output
     dictionary: each url gives obviously a different structure
     

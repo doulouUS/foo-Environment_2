@@ -150,22 +150,25 @@ def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries, 
     """
     start = time.time()
     # only demand appearing on the day, time slot and region concerned
-    mask = (data[:, 1] == day) & (data[:, 7] > startTime) & (data[:, 7] < startTime + timeSpan ) \
-           & (data[:, 13] < coord_boundaries[0]) & (data[:, 13] > coord_boundaries[1]) & (data[:, 14] < coord_boundaries[2])\
+    mask = (data[:, 1] == day) & (data[:, 7] > startTime) \
+           & (data[:, 7] < startTime + timeSpan) \
+           & (data[:, 13] < coord_boundaries[0]) \
+           & (data[:, 13] > coord_boundaries[1]) \
+           & (data[:, 14] < coord_boundaries[2]) \
            & (data[:, 14] > coord_boundaries[3])
 
     # Corresponding KernelDensity model: Parameters to be reviewed !!
     print("Number of historical events used to established KDE model: ", data[mask][:, 0].shape)
     Xtrain = data[mask][:, -2:]
-    kde = KernelDensity(bandwidth=(np.max(data[:, 0])-np.min(data[:, 0]))/bandwidth,
-                        kernel='gaussian', algorithm='ball_tree')
+    kde = KernelDensity(bandwidth= 100,#(np.max(data[:, 0])-np.min(data[:, 0]))/bandwidth,
+                        kernel='epanechnikov', algorithm='ball_tree')
 
     # Xtrain *= np.pi / 180  # lat/long to radian
     kde.fit(Xtrain)  # meaningful features: Longitudes and Latitudes
     end = time.time()
     print("KDE model building duration: ", end - start)
     return kde
-    
+
 #kde.sample(3) #sample 3 coordinates
   
 
@@ -351,7 +354,7 @@ def dataToNumpy():
    
 
 def numpyToTxt(measures,name):
-    """Store a numpry array into a txt file
+    """Store a numpy array into a txt file
     
     @Input
         measures: numpy array
