@@ -10,6 +10,7 @@ Created on Wed Jan  11 10:10:58 2017
 # import httplib2 as http #External library
 
 import numpy as np
+import sys
 # import math
 # import itertools as it
 
@@ -75,11 +76,12 @@ class FooEnv(gym.Env):
         self.mask_d = self.deliverydata[:, 7] == 0  # deliveries
         self.deliveryLocations = self.deliverydata[self.mask_d][:, 4]  # ID of the delivery locations
         self.ndl = np.size(self.deliveryLocations)  # Number of delivery locations
+        self.remDeliv = self.ndl  # remaining delivery locations to visit
 
         # Pick-up locations to visit : invisible to the agent (pre-loaded scenario)
         self.mask_p = self.deliverydata[:, 7] != 0
         self._pickupLocations = self.deliverydata[self.mask_p][:, 4]  # ID of the pickup addresses
-        self._npl = np.size(self._pickupLocations)  # Number of pickup locations
+        self._npl = np.size(self._pickupLocations)  # Number of pickup locations (total)
 
         # Coordinates boundaries (to help localize the overall zone of operations)
         max_long = np.max(self.deliverydata[:, 13])
@@ -166,6 +168,7 @@ class FooEnv(gym.Env):
             self.durations = []
 
         self.visited_customer = [1] + [0] * (self.tasks.shape[0] - 1)  # starting from the first task,
+        self.remDeliv -= 1
         #  it has been visited => 1
 
         print("Initialization done.")
@@ -229,6 +232,10 @@ class FooEnv(gym.Env):
                 print("list of tasks size ", self.visited_customer)
                 self.visited_customer[a] += 1
 
+                # If action < self.ndl, meaning a delivery is being done, we decrement the remaining nb of deliveries
+                if a < self.ndl:
+                    self.remDeliv -= 1
+
                 # Current location
                 self.currentLocation = self.tasks[a, 4]  # Address
                 self.currentCoords = self.tasks[a, -2:]  # Coords
@@ -266,7 +273,12 @@ class FooEnv(gym.Env):
         """
         # TODO If time permits, display a more meaningful congestion status (colored graph depending on travel duration)
         # Retrieve string addresses of locations to visit
-        with open('/home/louis/Documents/Research/Code/foo-Environment_2/gym_foo/envs/addresses.fedex', 'rb') as fp:
+        if sys.platform == 'linux':
+            addressPath = '/home/louis/Documents/Research/Code/foo-Environment_2/gym_foo/envs/addresses.fedex'
+        elif sys.platform == 'darwin':
+            addressPath = "/Users/Louis/PycharmProjects/MEng_Research/foo-Environment_2/gym_foo/envs/addresses.fedex"
+
+        with open(addressPath, 'rb') as fp:
             addresses = pickle.load(fp)
 
         print("-" * 33 + '|' + "-" * 35)

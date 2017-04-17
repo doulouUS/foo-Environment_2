@@ -12,7 +12,7 @@ import csv
 # from urllib.parse import urlparse
 
 import re
-
+from time import sleep
 from tempfile import TemporaryFile # store the data as a numpy array
 
 # import httplib2 as http # External library
@@ -24,8 +24,9 @@ from tempfile import TemporaryFile # store the data as a numpy array
 #                        APIs
 # ------------------------------------------------------------------------------
 #  LTA
-AccountKey = "8Q6acuQNTAGl8r/GqViFtA =  = "
+AccountKey = 'mAkXNom4RDaHb58BgQyh5w=='
 UniqueUserID = '8ecabd56-08a2-e843-0a7a-9944dccf124a'
+
 #  Headers
 headers  =  {
     'AccountKey': AccountKey,
@@ -295,10 +296,10 @@ def fetch_all_lta(url):
 def fetch_50(url): 
     """Retrieve just 50 results from LTA APIs
     
-    """ 
-    results =  requests.get(url,headers = headers).json()  
+    """
+
+    results = requests.get(url,headers = headers).json()
     return results
-    
 # ------------------------------------------------------------------------------
 #                        JSON tools
 # ------------------------------------------------------------------------------   
@@ -442,7 +443,9 @@ if __name__  ==  "__main__":
     url_bus_stops = "http://datamall2.mytransport.sg/ltaodataservice/BusStops"    
     url_incident = "http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents"    
     url_taxi = "http://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
-    
-    res = fetch_50("http://datamall2.mytransport.sg/ltaodataservice/TrafficSpeedBands")
-    writingJSON('speedDatcvccxa',res)
-    print(res['value'][0].keys())
+    url_travel = 'http://datamall.mytransport.sg/ltaodataservice.svc/TravelTimeSet'
+    res = fetch_50(url_speed_band)
+
+    print(res)
+    writingJSON('travel_time_test',res)
+    # print(res['value'][0].keys())

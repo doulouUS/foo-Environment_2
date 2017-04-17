@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 import gym_foo.envs.foo_env as envFoo
 import dynamics.demand_models.demandModels as modelG
 from dynamics.fooTools import roadSegments
@@ -7,13 +8,16 @@ from sklearn.neighbors import KernelDensity
 import itertools
 import matplotlib.pyplot as plt
 import scipy.spatial.distance as dist
-from datetime import timedelta, time
+from datetime import timedelta, datetime, time
 
 # try:
 #     from mpl_
 
 # Agent's side bing account
 BING_MAP_KEY = ' Ar3CJK6UhlfiInoTaLwsZwwjezd6okCCDWUbaEXS76Ru5CkXN2hbJWqg5vsNXncG'
+
+
+# ------------------------ Utilities -------------------------------------
 
 # travel duration btw 2 locations
 def apicall(loc1, loc2):
@@ -38,167 +42,290 @@ def apicall(loc1, loc2):
 
     return travelDuration
 
+# TODO Check all the units !!
+def nearest_neighbor(curLocation, locations):
+    """
 
-class agent1():
+    Return \mu(x_k) nearest neighbor of curLocation wrp to the locations
 
-    def __init__(self, foo_env, bandwdth=100):
-        """
-        Require to create and initialize an instance of foo_env first
-        dayOfOp is the integer defining which day of the week the agent is operating
-        bandwdt is the param controlling the smoothing when generating KDE model
-        """
-        # Truck's zone [max long, min long, max lat, min lat]
+    :param curLocation, array (1, 2): lat and long of the reference point
+        locations, array (n, 2): other locations among which we want to find the nearest neighbor
+    :return: int, index of the nearest neighbor, indicating its position in locations
+    """
+
+    # Distance between curLocation and all the locations
+    # print("size of locat", locations.shape)
+    # print("size of curlocat", curLocation.shape)
+    distance = dist.cdist(locations, curLocation)
+
+    # index of the minimun => nearest neighbor
+    nearest = np.argmin(distance)
+
+    return nearest
+
+
+def path_maker(curLocation, locations):
+    """
+    Gives the sequence of location to visit according to the nearest neighbor policy
+
+    :param curLocation: np array(1,2), departure point
+    :param locations: np array (n,2), points to visit
+    :param store locations
+    :return: list of successive coordinates, giving the places to visit (in this order)
+    """
+    '''Recursion tentative
+    # sequence of location to visit
+    if locations.shape == (1, 2):
+        print(locations)
+        coord.append(locations)
+        return locations
+    else:
+
+        next_loc = recursive_path_maker(
+                np.reshape(locations[nearest_neighbor(curLocation=curLocation,
+                                                      locations=locations), :], (1, 2)),
+                np.delete(locations, nearest_neighbor(curLocation=curLocation,
+                                                      locations=locations), 0),
+                coord)
+
+        # print(next_loc)
+        return next_loc
+    '''
+    coord = []  # store the sequence of locations
+
+    while locations.shape != (1, 2):
+        idx = nearest_neighbor(curLocation, locations)
+        coord.append(list(locations[idx, :]))
+
+        # Update
+        curLocation = np.reshape(locations[idx, :], (1,2))
+        locations = np.delete(locations, idx, 0)
+
+    return coord
+
+def successive_distance(coords):
+    """
+    Return distances btw successive coords
+    :param coords: list of coordinates (output of path_maker
+    :return: list of floats
+    """
+
+    return [dist.cityblock(coords[i], coords[i+1]) for i in range(len(coords)-1)]
+
+# TODO manage the case when the time of the file is lower than the current time
+def mean_pi(distance, time):
+    """
+    Return mean and std of the normal distribution of the travel time at time t, for a specific distance
+
+    :param distance: float in KM !!
+    :param time: str, ex '1205' => 12h05
+    :return: mean and std
+    """
+
+    # Stats retrieval
+    if sys.platform == 'linux':
+        statPath = "//home/louis/Documents/Research/Code/foo-Environment_2/dynamics/travelling time/" \
+                   "traveltime_stats.txt"
+    elif sys.platform == 'darwin':
+        statPath = "/Users/Louis/PycharmProjects/MEng_Research/foo-Environment_2/dynamics/travelling time/" \
+                   "traveltime_stats.txt"
+
+    stats = np.loadtxt(statPath, skiprows=2)
+
+    # print('shape of the stats array ', stats.shape)
+
+    # Corresponding travel time file
+    cur_time = str(int(np.floor(int(time)/100)))+':'+str(int(time[-2:]))
+    time_file = str(int(np.floor(stats[0, 1]/100))) + ':' + str(int(str(int(stats[0, 1]))[-2:]))
+    FMT = '%H:%M'
+    if datetime.strptime(time_file, FMT) > datetime.strptime(cur_time, FMT):
+        delta_file = datetime.strptime(time_file, FMT) - datetime.strptime(cur_time, FMT)
+    else:
+        delta_file =  datetime.strptime(cur_time, FMT) - datetime.strptime(time_file, FMT)
+
+    for closest in range(1, stats[:, 1].shape[0]):
+
+        time_file = str(int(np.floor(stats[closest, 1] / 100))) + ':' + str(int(str(int(stats[closest, 1]))[-2:]))
+
+        if (datetime.strptime(time_file, FMT) - datetime.strptime(cur_time, FMT)) < delta_file:
+            if datetime.strptime(time_file, FMT) > datetime.strptime(cur_time, FMT):
+                delta_file = datetime.strptime(time_file, FMT) - datetime.strptime(cur_time, FMT)
+            else:
+                delta_file = datetime.strptime(cur_time, FMT) - datetime.strptime(time_file, FMT)
+
+            closest_file = closest
+
+    #print("selected file ", stats[closest_file, 1])
+    #print(self.curState.time)
+
+    # Retrieve model
+    a = stats[closest_file, 4]
+    b = stats[closest_file, 3]
+    c = stats[closest_file, 2]
+
+    t = stats[closest_file, 5]
+    s_err = stats[closest_file, 6]
+    n_trip = stats[closest_file, 7]
+    mean = stats[closest_file, 8]
+    errMeanSq = stats[closest_file, 9]
+
+    # Compute mean and std (for the given )
+    mean_dist = a * float(np.power(distance, 2)) + b * distance + c
+    PI = t * s_err * np.sqrt(1 + 1 / n_trip + (distance - mean) ** 2 / errMeanSq)
+    return mean_dist, PI
+
+
+
+# ------------------------------------------------------------------------
+# STATE Class
+# ------------------------------------------------------------------------
+# TODO transform every time object into a datetime or time object !
+class state():
+
+    def __init__(self, foo_env):
+
+        # Current location
+        self.loc = np.reshape(foo_env.currentCoords, (1, 2))  # coords
+        # self.locID = foo_env.curLocID ??
+
+        # Current time
+        self.time = foo_env.time
+
+        # Remaining customers
+        rem_customers = foo_env.tasks[:, -2:]  # coords of all customers (serviced or not)
+        visited_cust = foo_env.visited_customer  # list
+        self.remCustomers = np.asarray([rem_customers[row, :] for row in range(len(visited_cust))
+                                        if visited_cust[row] == 0])
+
+        # Other info
+        # Repartition deliveries/pickups
+        self.n_d = foo_env.remDeliv
+        self.n_p = np.size(rem_customers, axis=0) - foo_env.ndl
+        self.nbCust = self.n_d + self.n_p  # current nb of customers
+
+        # Max number of tasks (n_p + n_d < N) => hence there is self.N - self.nbCust locations to sample
+        self.N = foo_env.ndl + foo_env._npl
+        print("Nb of artificial pickups to generate ", self.N - self.nbCust)
+
+        # Zone
         coords = foo_env.deliverydata[:, -2:]
         self.zone = [np.amax(coords[:, 0]), np.amin(coords[:, 0]), np.amax(coords[:, 1]), np.amin(coords[:, 1])]
+        print("type of zone ", self.zone)
+        # Date of operation
+        self.date = foo_env.deliverydata[0, 0]
+        self.day = int(foo_env.deliverydata[0, 1])
+        self.starttime = foo_env.startTime
 
-        # time span to model demand (here 12h considered as whole day)
-        self.t_range = 12*60
-        self.starttime = int(foo_env.startTime)
+        # Test
+        if self.n_p + self.n_d == self.remCustomers.shape[0]:
+            print("Number of pickups compatible")
+        else:
+            print("Number of pickups NOT compatible")
+
+    def update(self, foo_env):
+        """
+        Update the state given the last observation given in foo_env object
+
+        :param foo_env: foo_env object
+        :return: nothing, update the state object
+        """
+        # Current location
+        self.loc = foo_env.currentCoords  # coords
+        # self.locID = foo_env.curLocID ??
+
+        # Current time
+        self.time = foo_env.time
+
+        # Remaining customers (coords as a np array (:, 2)
+        rem_customers = foo_env.tasks[:, -2:]  # coords of all customers (serviced or not)
+        visited_cust = foo_env.visited_customer  # list
+        self.remCustomers = np.asarray([rem_customers[row, :] for row in range(len(visited_cust))
+                                        if visited_cust[row] == 0])
+
+        # Other info
+        # Repartition deliveries/pickups
+        self.n_d = foo_env.remDeliv
+        self.n_p = np.size(rem_customers, axis=0) - foo_env.ndl
+        self.nbCust = self.n_d + self.n_p  # current nb of customers
+
+        # Max number of tasks (n_p + n_d < N) => hence there is self.N - self.nbCust locations to sample
+        self.N = foo_env.ndl + foo_env._npl
+
+        # Zone
+        coords = foo_env.deliverydata[:, -2:]
+        self.zone = [np.amax(coords[:, 0]), np.amin(coords[:, 0]), np.amax(coords[:, 1]), np.amin(coords[:, 1])]
 
         # Date of operation
         self.date = foo_env.deliverydata[0, 0]
         self.day = int(foo_env.deliverydata[0, 1])
 
-        # State of the environment
-        self.curLocID = foo_env.currentLocation  # ID
-        self.curLocCoords = foo_env.currentCoords  # Coordinates (Longitude, Latitude) np.array
-
-        self.curTime = foo_env.time
-        self.demCoords = foo_env.tasks[:, -2:]
-
-        self.N_loc = 30  # total fixed number of locations to visit
-
-        if self.N_loc > len(foo_env.visited_customer):
-            self.n_p = self.N_loc - len(foo_env.visited_customer)  # unknown locations to be sampled
+        # Test
+        if self.n_p + self.n_d == self.remCustomers.shape[0]:
+            print("Number of pickups compatible")
         else:
-            self.n_p = 0  # terminal state
-            raise NameError("Initialized agent with a fully serviced environment")
+            print("Number of pickups NOT compatible")
 
-        self.visitCust = foo_env.visited_customer.extend(self.n_p * [0])
 
-        # ------------------- DEMAND ------------------------------------
-        # Call fedex.data for KDE only
-        self.path = modelG.fedex_data_path + "fedex.data"
-        self.data = np.loadtxt(self.path)
 
-        # KDE model to sample new models
-        mask = (self.data[:, 0] != self.date) & (self.data[:, 7] != 0)
-        self.data_oth = self.data[mask]  # demand data from other day of operations (for test purpose)
-        self.kdeZone = modelG.modelGenerator_fedex_data(self.data_oth, self.day, self.starttime, self.t_range,
-                                                        self.zone, bandwidth=bandwdth)
 
-        # ------------------------------------------------------
 
-    def
+# ------------------------------------------------------------------------
+# PICKUP Class
+# ------------------------------------------------------------------------
+class pickup():
 
-    def updateState(self, foo_env):
+    def __init__(self, state, t_range, bandwidth=100):
         """
-            Update State of the environment, and return the state
 
-        :return: tuple, curent coordinates,
+        :param data_path: path to the fedex data
+        :param state: current state of operation
         """
-        self.curLocID = foo_env.currentLocation  # ID
-        self.curLocCoords = foo_env.currentCoords
+        self.state = state
 
+        data = np.loadtxt(modelG.fedex_data_path + "fedex.data")
+        mask = (data[:, 0] != state.date) & (data[:, 7] != 0)
+        data = data[mask]
 
-        self.curTime = foo_env.time
-        self.demCoords = foo_env.tasks[:, -2:]
-
-        if self.N_loc > len(foo_env.visited_customer):
-            self.n_p = self.N_loc - len(foo_env.visited_customer)  # unknown locations to be sampled
-        else:
-            self.n_p = 0  # terminal state
-            raise NameError("All jobs completed !")
-
-        self.visitCust = foo_env.visited_customer + [0]*self.n_p
-
-        return self.curLocCoords, self.curTime, np.vstack((self.demCoords, np.zeros((self.n_p, 2)))) , self.visitCust
+        self.kdeZone = modelG.modelGenerator_fedex_data(data, state.day, state.starttime, t_range,
+                                                        state.zone, bandwidth=bandwidth)
 
     # --------------------------------- Sampling ------------------------------------------------
 
-    def sample_demands(self, seed = 0):
+    def sample_pickups(self, seed = 0):
         """
-        Return self.n_p demand coordinates
-        :return: array (self.n_p , 2)
+        Return artificial new pickups coordinates
+        :return: array (self.curState.N - self.curState.nbCust , 2)
         """
-        return self.kdeZone.sample(self.n_p, random_state=seed)
+        return self.kdeZone.sample(self.state.N - self.state.nbCust, random_state=seed)
 
+# ------------------------------------------------------------------------
+# AGENT Class
+# ------------------------------------------------------------------------
 
+class agent1():
 
-    def mean_pi(self, distance):
+    def __init__(self, state, t_range=12*60, bandwidth=100):
         """
-        Return mean and std of the normal distribution of the travel time at time t, for a specific distance
-
-        :param distance: float in KM !!
-        :param time: int, ex 1205 => 12h05
-        :return: mean and std
+        Require to retrieve the state of the environment
+        dayOfOp is the integer defining which day of the week the agent is operating
+        bandwdt is the param controlling the smoothing when generating KDE model
         """
+        self.bandwidth = bandwidth
+        self.t_range = t_range
+        # Current state (not mandatory)
+        self.curState = state
 
-        # Stats retrieval
+        # Model the pickups
+        self.pickup_model = pickup(self.curState, self.t_range, self.bandwidth)
 
-        stats = np.loadtxt("//home/louis/Documents/Research/Code/foo-Environment_2/dynamics/travelling time/"
-                           "traveltime_stats.txt", skiprows=2)
+        # Nb of simulation for MC
+        self.MC = 10
 
-        print('shape of the stats array ', stats.shape)
-
-        # Corresponding travel time file
-
-        cur_time = timedelta(hours=int(np.floor(int(self.curTime)/100)), minutes=int(self.curTime[-2:]))
-        time_file = timedelta(hours=int(np.floor(stats[0, 1]/100)), minutes=int(str(int(stats[0, 1]))[-2:]) )
-        delta_file = cur_time - time_file
-
-        for closest in range(1, stats[1:, 1].shape[0]):
-
-            time_file = timedelta(hours=np.floor(stats[closest, 1] / 100), minutes=int(str(int(stats[closest, 1]))[-2:]))
-            if (cur_time - time_file) < delta_file:
-                delta_file = timedelta(cur_time, time_file)
-                closest_file = closest
-
-        # Retrieve model
-        a, b, c = stats[closest, 4], stats[closest, 3], stats[closest, 2]
-        t = stats[closest, 5]
-        s_err = stats[closest, 6]
-        n_trip = stats[closest, 7]
-        mean = stats[closest, 8]
-        errMeanSq = stats[closest, 9]
-
-        # Compute mean and std (for the given )
-        mean_dist = a*np.power(distance, 2) + b*distance + c
-        PI = t * s_err * np.sqrt(1 + 1 / n_trip + (distance - mean) ** 2 / errMeanSq)
-
-        return mean_dist, PI
-
-
-
-
-    def nearest_neighbor(self, sampled_demand):
-        """
-        To be used after updateState
-        Return \mu(x_k) nearest neighbor among non-serviced locations including sampled demands
-        as an index of self.demCoords if \mu(x_k) is part of demCoords (0)
-        or as an index of sampled_demand otherwise (1)
-
-        :param sampled_demand, array (self_np, 2)
-        :return: tuple : coordinates (np.array), indx , among sapled_demand or not (0 or 1)
-        """
-        # Non serviced locations (including sampled_demand)
-        mask = self.visitCust == 0
-        nonServicedLoc = np.stack((self.demCoords[mask], sampled_demand))
-
-        # Distance between self.current_location and all the non-serviced locations
-        distance = dist.cdist(self.curLocCoords, nonServicedLoc)
-
-        # index of the minimun => nearest neighbor
-        nearest = np.argmin(distance)
-
-        # identify the id of the nearest neighbor in self.demCoords or sampled_demand
-        if nearest > self.demCoords[mask].shape[0]:  # nearest is among the sampled demands
-            return  distance[nearest], self.demCoords.shape[0] + (nearest - self.demCoords[mask].shape[0]), 1
-        else:
-            return distance[nearest], np.where(np.all(self.demCoords == distance[nearest], axis=1)), 0
-
-
-    def pathmaker(self):
+        # KDE model to sample new models
+        # mask = (self.data[:, 0] != self.date) & (self.data[:, 7] != 0)
+        # self.data_oth = self.data[mask]  # demand data from other day of operations (for test purpose)
+        # self.kdeZone = modelG.modelGenerator_fedex_data(self.data_oth, self.day, self.starttime, self.t_range,
+        # self.zone, bandwidth=bandwdth)
 
     def dispDemand(self, grid_size=10):
         """
@@ -242,32 +369,43 @@ class agent1():
         plt.show()
 
 
-def cost_to_go_mc(agent, zone, n_sim = 100, t_range=12):
-    """
-    Return an approximation of the cost to go function from the input state,
-    using Monte-Carlo method with the nearest neighbor base policy
+    def cost_to_go_mc(self):
+        """
+        Return an approximation of the cost to go function from the current state,
+        using Monte-Carlo method with the nearest neighbor base policy
 
-    :param  agent , current state
-            n_sim int, number of scenario generated
-            zone list, coord boundaries
-            t_range int, hours defining time span
+        :param
 
-    :return: float
-    """
-    # Initialization
+        :return: float
+        """
 
-    # For loop/scenario
-    for i in range(n_sim):
-        # traveling time of scenario i
-        h = 0
+        # Virtually move to ONE of the next possible location
+        # and retrieve the associated cost
+        next_cust = self.curState.remCustomers[1]  # Coordinates
+        immediate_dist = successive_distance([self.curState.loc, next_cust])
+        immediate_cost = mean_pi(immediate_dist[0], self.curState.time)
 
-        # Sample new customers
-        new_demand_coord = agent.sample_demands()  # np array (n_p, 20 containing coordinates
+        print("Cost to go to the next ", immediate_cost[0])
+        # For many scenarios (change the seed each time)
+        for i in range(100):
+            ## Sample pickups
 
-        # Path generation
-        ## nearest neighbors
+            new_pickups = self.pickup_model.sample_pickups(seed=i)
+            locations = np.vstack((self.curState.remCustomers, new_pickups))
+            # print("size ", locations.shape)
+            ## Nearest neighbour policy
+            path = path_maker(self.curState.loc, locations)
+            # plt.plot([path[i][0] for i in range(len(path))], [path[i][1] for i in range(len(path))])
+            # plt.scatter([path[i][0] for i in range(len(path))], [path[i][1] for i in range(len(path))])
+            plt.show()
+            dist_path = successive_distance(path)
 
-        ## travel time of each step
+            ## Accumualted cost
+            # TODO the second argument of mean_pi so that time is updated at each step.
+            costs = [mean_pi(d, self.curState.time)[0] for d in dist_path]
+            # print(sum(costs))
+
+        # Average over all the scenarios
 
 if __name__ == '__main__':
     # ------------------- DEMAND ------------------------------------

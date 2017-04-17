@@ -7,6 +7,7 @@ Created on Tue Jan 24 15:38:50 2017
 """
 
 import time
+import sys
 from sklearn.neighbors import KernelDensity
 import csv
 
@@ -16,7 +17,11 @@ import numpy as np
 import re # string splitting
 
 # Ubuntu fedex.data path
-fedex_data_path = "/home/louis/Documents/Research/Code/foo-Environment_2/dynamics/demand_models/"
+if sys.platform == 'linux':
+    fedex_data_path = "/home/louis/Documents/Research/Code/foo-Environment_2/dynamics/demand_models/"
+elif sys.platform == 'darwin':
+    fedex_data_path = "/Users/Louis/PycharmProjects/MEng_Research/foo-Environment_2/dynamics/demand_models/"
+
 
 def demandRetriever():
     """
@@ -126,12 +131,13 @@ def modelGenerator(data,day,startTime,timeSpan):
     return kde
 
 
+# TODO MINUTES HERE !
 # VERSION 2 for fedex.data file (very smilar to the previous one
 def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries, bandwidth=70):
     """
 
     @Input
-        data: np.array, fedex.data minus the day for which we want to model the demand
+        data: np.array, pickups fedex.data minus the day for which we want to model the pickups
         day: int, 1: monday - 2: tuesday - 3: wednesday - 4: thursday - 5: friday - 6: saturday
         startTime: int, starting time of the time slot (1030 => 10h30mn)
         timeSpan: int, length in mn of the time slot
@@ -148,25 +154,18 @@ def modelGenerator_fedex_data(data, day, startTime, timeSpan, coord_boundaries, 
 
 
     """
-    start = time.time()
     # only demand appearing on the day, time slot and region concerned
-    mask = (data[:, 1] == day) & (data[:, 7] > startTime) \
-           & (data[:, 7] < startTime + timeSpan) \
-           & (data[:, 13] < coord_boundaries[0]) \
-           & (data[:, 13] > coord_boundaries[1]) \
-           & (data[:, 14] < coord_boundaries[2]) \
-           & (data[:, 14] > coord_boundaries[3])
+    mask = (data[:, 1] == day)
+    # TODO understand why this mask doesn't work !
 
     # Corresponding KernelDensity model: Parameters to be reviewed !!
     print("Number of historical events used to established KDE model: ", data[mask][:, 0].shape)
     Xtrain = data[mask][:, -2:]
-    kde = KernelDensity(bandwidth= 100,#(np.max(data[:, 0])-np.min(data[:, 0]))/bandwidth,
-                        kernel='epanechnikov', algorithm='ball_tree')
+    kde = KernelDensity(bandwidth= bandwidth, #  (np.max(data[:, 0])-np.min(data[:, 0]))/bandwidth,
+                        kernel='gaussian', algorithm='ball_tree')
 
     # Xtrain *= np.pi / 180  # lat/long to radian
     kde.fit(Xtrain)  # meaningful features: Longitudes and Latitudes
-    end = time.time()
-    print("KDE model building duration: ", end - start)
     return kde
 
 #kde.sample(3) #sample 3 coordinates
